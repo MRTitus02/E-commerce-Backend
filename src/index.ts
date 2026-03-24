@@ -2,6 +2,7 @@ import { serve } from '@hono/node-server'
 import { Hono } from 'hono'
 import product from './controller/product.controller'
 import { docsApp } from './docs/openapi'
+import user from './controller/user.controller'
 
 const app = new Hono()
 
@@ -10,6 +11,7 @@ app.get('/', (c) => {
 })
 
 app.route("/products", product);
+app.route("/users", user);
 
 app.route("/docs", docsApp);
 app.route("/docs/*", docsApp);
