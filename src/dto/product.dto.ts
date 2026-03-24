@@ -7,6 +7,10 @@ export const createProductSchema = z.object({
 });
 
 export const updateProductSchema = createProductSchema.partial();
+export const productResponseSchema = createProductSchema.extend({
+    id: z.string()
+});
 
 export type CreateProductDTO = z.infer<typeof createProductSchema>;
 export type UpdateProductDTO = z.infer<typeof updateProductSchema>;
+export type ProductResponseDTO = z.infer<typeof productResponseSchema>;
