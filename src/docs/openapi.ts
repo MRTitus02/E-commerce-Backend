@@ -10,6 +10,7 @@ import {
   updateProductSchema,
   productResponseSchema,
 } from "../dto/product.dto";
+import { createUserSchema, updateUserSchema, userResponseSchema } from "../dto/user.dto.js";
 
 // OpenAPI app (for generating spec)
 const openapi = new OpenAPIHono();
@@ -160,7 +161,133 @@ openapi.openapi(
     noopHandler
   );
 
-  
+//  User: Create
+openapi.openapi(
+  createAutoRoute({
+    method: "post",
+    path: "/users",
+    tag: "User",
+    summary: "Create a new user",
+    description: "Creates a new user with the provided details",
+
+    requestSchema: createUserSchema,
+    responseSchema: userResponseSchema,
+
+    responses: {
+      201: {
+        description: "User created successfully",
+        content: {
+          "application/json": {
+            schema: userResponseSchema,
+          },
+        },
+      },
+    },
+
+    security: [{ bearerAuth: [] }],
+  }),
+  noopHandler
+);
+
+openapi.openapi(
+    createAutoRoute({
+      method: "get",
+      path: "/users",
+      tag: "User",
+      summary: "Get all users",
+      description: "Retrieves a list of all users",
+
+      responseSchema: z.array(userResponseSchema),
+
+      responses: {
+        200: {
+          description: "List of users retrieved successfully",
+          content: {
+            "application/json": {
+              schema: z.array(userResponseSchema),
+            },
+          },
+        },
+      }
+    }),
+    noopHandler
+  );
+
+openapi.openapi(
+    createAutoRoute({
+      method: "get",
+      path: "/users/{id}",
+      tag: "User",
+      summary: "Get a user by ID",
+      description: "Retrieves a user by its ID",
+
+      paramSchema: z.object({ id: z.string() }),
+      responseSchema: userResponseSchema,
+
+      responses: {
+        200: {
+          description: "User retrieved successfully",
+          content: {
+            "application/json": {
+                schema: userResponseSchema,
+            },
+          },
+        },
+      }
+    }),
+    noopHandler
+  );
+
+openapi.openapi(
+    createAutoRoute({
+      method: "put",
+      path: "/users/{id}",
+      tag: "User",
+      summary: "Update a user by ID",
+      description: "Updates a user by its ID",
+
+      paramSchema: z.object({ id: z.string() }),
+      requestSchema: updateUserSchema,
+      responseSchema: userResponseSchema,
+
+      responses: {
+        200: {
+          description: "User updated successfully",
+          content: {
+            "application/json": {
+                schema: userResponseSchema,
+            },
+          },
+        },
+      }
+    }),
+    noopHandler
+  );
+
+openapi.openapi(
+    createAutoRoute({
+      method: "delete",
+      path: "/users/{id}",
+      tag: "User",
+      summary: "Delete a user by ID",
+      description: "Deletes a user by its ID",
+
+      paramSchema: z.object({ id: z.string() }),
+      responses: {
+        200: {
+          description: "User deleted successfully",
+          content: {
+            "application/json": {
+                schema: z.object({ message: z.string() }),
+            },
+          },
+      }
+      }
+          }
+    ),
+    noopHandler
+  );
+
 // =======================
 // Docs App (Scalar UI)
 // =======================

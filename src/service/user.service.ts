@@ -29,13 +29,20 @@ export const userService = {
     return newUser;
   },
 
-  getUser: async (id: string) => {
+getUser: async (id: string) => {
+  try {
     const user = await userRepository.findById(id);
     if (!user) {
       throw new UserNotFoundError();
     }
     return user;
-  },
+  } catch (err: unknown) {
+    if ((err as any)?.message?.includes("Failed query")) {
+      throw new UserNotFoundError(`User with id ${id} not found`);
+    }
+    throw err;
+  }
+},
 
   getAllUsers: async () => {
     return userRepository.getAll();

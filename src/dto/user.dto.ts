@@ -9,5 +9,11 @@ export const createUserSchema = z.object({
 
 export const updateUserSchema = createUserSchema.partial();
 
+export const userResponseSchema = createUserSchema.extend({
+    id: z.string(),
+    createdAt: z.string().optional(),
+});
+
+export type UserResponseDTO = z.infer<typeof userResponseSchema>;
 export type CreateUserDTO = z.infer<typeof createUserSchema>;
 export type UpdateUserDTO = z.infer<typeof updateUserSchema>;
