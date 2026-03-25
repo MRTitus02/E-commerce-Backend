@@ -1,16 +1,23 @@
 import { Hono } from "hono";
 import { orderService } from "../service/order.service";
+import { authMiddleware } from "../middleware/auth.middleware";
 
 const order = new Hono();
 
-order.post("/", async (c) => {
+order.post("/", authMiddleware, async (c) => {
   try {
     const idempotencyKey = c.req.header("Idempotency-Key");
     if (!idempotencyKey) {
       return c.json({ message: "Idempotency-Key header is required" }, 400);
     }
 
-    const data = await c.req.json();
+    const user = c.get("user");
+    const body = await c.req.json();
+    const data = {
+      userId: user.id,
+      items: body.items
+    };
+    
     const result = await orderService.createOrder(idempotencyKey, data);
     
     if (result.cached) {

@@ -1,13 +1,10 @@
 import { z } from "zod";
 
 export const createOrderSchema = z.object({
-    userId: z.string(),
     items: z.array(z.object({
-        productId: z.string(),
-        quantity: z.number().min(1).positive(),
+        productId: z.string().uuid(),
+        quantity: z.number().int().min(1),
     })),
-    totalAmount: z.number().min(0),
-    status: z.enum(["pending", "completed", "cancelled"]),
 });
 
 export type CreateOrder = z.infer<typeof createOrderSchema>;
