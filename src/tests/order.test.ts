@@ -3,10 +3,12 @@ import app from '../index';
 import { db } from '../infra/db/client';
 import { products, orders, order_items, idempotencyKeys, users } from '../infra/db/schema';
 import { eq } from 'drizzle-orm';
+import { signAccessToken } from '../utils/jwt';
 
 describe('Order API', () => {
   let testUserId: string;
   let testProductId: string;
+  let authToken: string;
 
   beforeAll(async () => {
     // Clear test data
@@ -25,6 +27,9 @@ describe('Order API', () => {
     }).returning();
     testUserId = userRes[0].id;
 
+    // Generate valid Auth Token for test user
+    authToken = signAccessToken({ id: testUserId, email: 'test@example.com', role: 'user' });
+
     // Create a test product with 10 stock
     const productRes = await db.insert(products).values({
       name: 'Test Product',
@@ -36,7 +41,6 @@ describe('Order API', () => {
 
   it('should create an order successfully with idempotency key', async () => {
     const payload = {
-      userId: testUserId,
       items: [
         { productId: testProductId, quantity: 2 }
       ]
@@ -46,7 +50,8 @@ describe('Order API', () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Idempotency-Key': 'key-123'
+        'Idempotency-Key': 'key-123',
+        'Authorization': `Bearer ${authToken}`
       },
       body: JSON.stringify(payload)
     });
@@ -64,7 +69,8 @@ describe('Order API', () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Idempotency-Key': 'key-123'
+        'Idempotency-Key': 'key-123',
+        'Authorization': `Bearer ${authToken}`
       },
       body: JSON.stringify(payload)
     });
@@ -85,7 +91,6 @@ describe('Order API', () => {
     // Only 4 should succeed, and 1 should fail.
     
     const payload = {
-      userId: testUserId,
       items: [
         { productId: testProductId, quantity: 2 }
       ]
@@ -96,7 +101,8 @@ describe('Order API', () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Idempotency-Key': `concurrent-key-${i}`
+          'Idempotency-Key': `concurrent-key-${i}`,
+          'Authorization': `Bearer ${authToken}`
         },
         body: JSON.stringify(payload)
       })

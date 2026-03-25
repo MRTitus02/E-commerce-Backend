@@ -1,10 +1,10 @@
 import { db } from "../infra/db/client";
 import { products, orders, order_items, idempotencyKeys } from "../infra/db/schema";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, and } from "drizzle-orm";
 import type { CreateOrder } from "../dto/order.dto";
 
 export const orderService = {
-  createOrder: async (idempotencyKey: string, data: Pick<CreateOrder, "userId" | "items">) => {
+  createOrder: async (idempotencyKey: string, data: { userId: string; items: CreateOrder["items"] }) => {
     // Check idempotency key first
     if (idempotencyKey) {
       const existing = await db.select().from(idempotencyKeys).where(eq(idempotencyKeys.key, idempotencyKey));
@@ -27,11 +27,16 @@ export const orderService = {
           // Update stock and return price. Relies on 'stock_check' DB constraint to prevent oversell.
           const updatedProduct = await tx.update(products)
             .set({ stock: sql`${products.stock} - ${item.quantity}` })
-            .where(eq(products.id, item.productId))
+            .where(
+              and(
+                eq(products.id, item.productId),
+                sql`${products.stock} >= ${item.quantity}`
+              )
+            )
             .returning();
           
           if (updatedProduct.length === 0) {
-            throw new Error(`Product ${item.productId} not found`);
+            throw new Error('Insufficient stock for one or more items');
           }
 
           const product = updatedProduct[0];

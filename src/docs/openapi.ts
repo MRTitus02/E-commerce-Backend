@@ -16,7 +16,7 @@ import { loginSchema, registerSchema, refreshSchema, authResponseSchema } from "
 
 
 // OpenAPI app (for generating spec)
-const openapi = new OpenAPIHono();
+export const openapi = new OpenAPIHono();
 
 const OPENAPI_DOCUMENT_CONFIG = {
   openapi: "3.0.0",
@@ -33,6 +33,7 @@ const OPENAPI_DOCUMENT_CONFIG = {
       },
     },
   },
+  security: [{ bearerAuth: [] }],
 };
 
 const noopHandler = async (c: any) => c.text("", 204);
@@ -72,7 +73,6 @@ openapi.openapi(
       tag: "Product",
       summary: "Get all products",
       description: "Retrieves a list of all products",
-
       responseSchema: z.array(productResponseSchema),
 
       responses: {
@@ -313,7 +313,6 @@ openapi.openapi(
         },
       },
     },
-
     security: [{ bearerAuth: [] }],
   }),
   noopHandler
@@ -388,6 +387,16 @@ export const docsApp = new Hono();
 // OpenAPI JSON
 docsApp.get("/openapi.json", (c) => {
   const document = openapi.getOpenAPIDocument(OPENAPI_DOCUMENT_CONFIG);
+  // ensure the bearerAuth scheme exists
+  document.components = document.components ?? {};
+  document.components.securitySchemes = {
+    ...(document.components.securitySchemes ?? {}),
+    bearerAuth: {
+      type: "http",
+      scheme: "bearer",
+      bearerFormat: "JWT",
+    },
+  };
   return c.json(document);
 });
 
