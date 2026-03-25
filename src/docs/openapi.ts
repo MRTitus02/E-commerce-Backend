@@ -11,6 +11,9 @@ import {
   productResponseSchema,
 } from "../dto/product.dto";
 import { createUserSchema, updateUserSchema, userResponseSchema } from "../dto/user.dto.js";
+import { createOrderSchema, orderResponseSchema } from "../dto/order.dto.js";
+import { loginSchema, registerSchema, refreshSchema, authResponseSchema } from "../dto/auth.dto.js";
+
 
 // OpenAPI app (for generating spec)
 const openapi = new OpenAPIHono();
@@ -287,6 +290,94 @@ openapi.openapi(
     ),
     noopHandler
   );
+
+//  Order: Create
+openapi.openapi(
+  createAutoRoute({
+    method: "post",
+    path: "/orders",
+    tag: "Order",
+    summary: "Create a new order",
+    description: "Creates a new order from products idempotently.",
+
+    requestSchema: createOrderSchema,
+    responseSchema: orderResponseSchema,
+
+    responses: {
+      201: {
+        description: "Order created successfully",
+        content: {
+          "application/json": {
+            schema: orderResponseSchema,
+          },
+        },
+      },
+    },
+
+    security: [{ bearerAuth: [] }],
+  }),
+  noopHandler
+);
+
+// Auth: Register
+openapi.openapi(
+  createAutoRoute({
+    method: "post",
+    path: "/auth/register",
+    tag: "Auth",
+    summary: "Register a new user",
+    description: "Creates a new user account and returns access + refresh tokens.",
+    requestSchema: registerSchema,
+    responseSchema: authResponseSchema,
+    responses: {
+      201: {
+        description: "User registered successfully",
+        content: { "application/json": { schema: authResponseSchema } },
+      },
+    },
+  }),
+  noopHandler
+);
+
+// Auth: Login
+openapi.openapi(
+  createAutoRoute({
+    method: "post",
+    path: "/auth/login",
+    tag: "Auth",
+    summary: "Login",
+    description: "Authenticates a user and returns access + refresh tokens.",
+    requestSchema: loginSchema,
+    responseSchema: authResponseSchema,
+    responses: {
+      200: {
+        description: "Login successful",
+        content: { "application/json": { schema: authResponseSchema } },
+      },
+    },
+  }),
+  noopHandler
+);
+
+// Auth: Refresh
+openapi.openapi(
+  createAutoRoute({
+    method: "post",
+    path: "/auth/refresh",
+    tag: "Auth",
+    summary: "Refresh tokens",
+    description: "Uses a refresh token to issue a new access + refresh token pair.",
+    requestSchema: refreshSchema,
+    responseSchema: authResponseSchema,
+    responses: {
+      200: {
+        description: "Tokens refreshed successfully",
+        content: { "application/json": { schema: authResponseSchema } },
+      },
+    },
+  }),
+  noopHandler
+);
 
 // =======================
 // Docs App (Scalar UI)

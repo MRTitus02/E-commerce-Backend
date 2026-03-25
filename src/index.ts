@@ -4,6 +4,10 @@ import product from './controller/product.controller'
 import { docsApp } from './docs/openapi'
 import user from './controller/user.controller'
 
+import order from './controller/order.controller'
+import webhook from './controller/webhook.controller'
+import auth from './controller/auth.controller'
+
 const app = new Hono()
 
 app.get('/', (c) => {
@@ -12,6 +16,10 @@ app.get('/', (c) => {
 
 app.route("/products", product);
 app.route("/users", user);
+app.route("/orders", order);
+app.route("/webhooks", webhook);
+app.route("/auth", auth);
+
 
 app.route("/docs", docsApp);
 app.route("/docs/*", docsApp);
@@ -22,3 +30,5 @@ serve({
 }, (info) => {
   console.log(`Server is running on http://localhost:${info.port}`)
 })
+
+export default app;
