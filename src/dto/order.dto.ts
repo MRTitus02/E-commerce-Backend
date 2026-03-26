@@ -4,7 +4,7 @@ export const createOrderSchema = z.object({
     items: z.array(z.object({
         productId: z.string().uuid(),
         quantity: z.number().int().min(1),
-    })),
+    })).min(1).optional(),
 });
 
 export type CreateOrder = z.infer<typeof createOrderSchema>;

@@ -1,10 +1,11 @@
 import { db } from "../infra/db/client";
 import { products, orders, order_items, idempotencyKeys } from "../infra/db/schema";
 import { eq, sql, and } from "drizzle-orm";
-import type { CreateOrder } from "../dto/order.dto";
+import { createOrderSchema, type CreateOrder } from "../dto/order.dto";
+import { cartService } from "./cart.service";
 
 export const orderService = {
-  createOrder: async (idempotencyKey: string, data: { userId: string; items: CreateOrder["items"] }) => {
+  createOrder: async (idempotencyKey: string, data: { userId: string; items?: CreateOrder["items"] }) => {
     // Check idempotency key first
     if (idempotencyKey) {
       const existing = await db.select().from(idempotencyKeys).where(eq(idempotencyKeys.key, idempotencyKey));
@@ -20,10 +21,20 @@ export const orderService = {
     // Begin transaction
     try {
       const result = await db.transaction(async (tx) => {
+        const validatedInput = createOrderSchema.parse({ items: data.items });
+        const useCart = !validatedInput.items;
+        const checkoutItems = useCart
+          ? await cartService.getCartItemsForCheckout(data.userId, tx)
+          : validatedInput.items ?? [];
+
+        if (checkoutItems.length === 0) {
+          throw new Error("Cart is empty");
+        }
+
         let totalAmount = 0;
         const itemsToInsert = [];
 
-        for (const item of data.items) {
+        for (const item of checkoutItems) {
           // Update stock and return price. Relies on 'stock_check' DB constraint to prevent oversell.
           const updatedProduct = await tx.update(products)
             .set({ stock: sql`${products.stock} - ${item.quantity}` })
@@ -67,6 +78,10 @@ export const orderService = {
 
         await tx.insert(order_items).values(orderItemsData);
 
+        if (useCart) {
+          await cartService.clearCartByUserId(data.userId, tx);
+        }
+
         const responseBody = {
           orderId: orderId,
           totalAmount: totalAmount,
@@ -94,6 +109,9 @@ export const orderService = {
       // Catch DB constraint error (postgres err code 23514 is check_violation)
       if (error.code === '23514') {
         throw new Error('Insufficient stock for one or more items');
+      }
+      if (error?.name === "ZodError") {
+        throw new Error("Invalid order payload");
       }
       throw error;
     }
