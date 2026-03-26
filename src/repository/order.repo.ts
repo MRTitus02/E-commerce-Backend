@@ -1,29 +1,61 @@
-import { db } from "../infra/db/client"
-import { orders, order_items, idempotencyKeys } from "../infra/db/schema"
-import { eq } from "drizzle-orm"
+import { supabase } from "../utils/supabase";
+
+const ORDERS_TABLE = "orders";
+const ORDER_ITEMS_TABLE = "order_items";
+const IDEMPOTENCY_TABLE = "idempotency_keys";
 
 export const orderRepository = {
   getIdempotency: async (key: string) => {
-    return db.select().from(idempotencyKeys).where(eq(idempotencyKeys.key, key))
+    const { data, error } = await supabase
+      .from(IDEMPOTENCY_TABLE)
+      .select("*")
+      .eq("key", key)
+      .maybeSingle();
+
+    if (error) throw error;
+    return data; // null if not found
   },
 
   saveIdempotency: async (key: string, responseBody: any, statusCode: number) => {
-    return db.insert(idempotencyKeys).values({
-      key,
-      responseBody,
-      statusCode,
-    })
+    const { data, error } = await supabase
+      .from(IDEMPOTENCY_TABLE)
+      .insert([{ key, responseBody, statusCode }])
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
   },
 
-  createOrder: async (tx: typeof db, data: any) => {
-    return tx.insert(orders).values(data).returning()
+  createOrder: async (data: any) => {
+    const { data: res, error } = await supabase
+      .from(ORDERS_TABLE)
+      .insert([data])
+      .select()
+      .single();
+
+    if (error) throw error;
+    return res;
   },
 
-  createOrderItems: async (tx: typeof db, items: any[]) => {
-    return tx.insert(order_items).values(items)
+  createOrderItems: async (items: any[]) => {
+    const { data: res, error } = await supabase
+      .from(ORDER_ITEMS_TABLE)
+      .insert(items)
+      .select();
+
+    if (error) throw error;
+    return res;
   },
 
   getOrderById: async (id: string) => {
-    return db.select().from(orders).where(eq(orders.id, id))
+    const { data, error } = await supabase
+      .from(ORDERS_TABLE)
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (error) throw error;
+    return data; // null if not found
   },
-}
+};
