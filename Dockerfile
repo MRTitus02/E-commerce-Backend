@@ -1,23 +1,35 @@
-# Use lightweight Node image
-FROM node:20-alpine
+# Stage 1: Build
+FROM node:20-bullseye AS builder
 
-# Set working directory
 WORKDIR /app
 
-# Copy package.json and lock file first (for caching)
+# Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci --omit=dev
+# Install ALL dependencies (including dev)
+RUN npm ci
 
-# Copy the rest of the app
+# Copy source code
 COPY . .
 
-# Build TypeScript if needed
+# Build TypeScript
 RUN npm run build
 
-# Expose the port (Render sets PORT env)
+# Stage 2: Production
+FROM node:20-bullseye
+
+WORKDIR /app
+
+# Copy only prod dependencies
+COPY package*.json ./
+RUN npm ci --omit=dev
+
+# Copy compiled JS from builder
+COPY --from=builder /app/dist ./dist
+
+# Copy other necessary files (if any, like .env.example)
+# COPY .env .  # optional; use env-file at runtime
+
 EXPOSE 3000
 
-# Use the PORT environment variable from Render
-CMD ["sh", "-c", "node dist/index.js"]
+CMD ["node", "dist/index.js"]
