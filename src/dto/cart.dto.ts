@@ -12,6 +12,7 @@ export const updateCartItemSchema = z.object({
 export const cartItemResponseSchema = z.object({
   productId: z.string().uuid(),
   name: z.string(),
+  description: z.string(),
   price: z.number().int(),
   quantity: z.number().int(),
   lineTotal: z.number().int(),

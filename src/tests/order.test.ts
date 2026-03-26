@@ -36,6 +36,7 @@ describe('Order API', () => {
     // Create a test product with 10 stock
     const productRes = await db.insert(products).values({
       name: 'Test Product',
+      description: 'A test product for order flows',
       price: 100,
       stock: 10
     }).returning();

@@ -41,6 +41,7 @@ async function buildCartResponse(userId: string, tx: DbLike = db): Promise<CartR
       productId: cart_items.productId,
       quantity: cart_items.quantity,
       name: products.name,
+      description: products.description,
       price: products.price,
     })
     .from(cart_items)
@@ -50,6 +51,7 @@ async function buildCartResponse(userId: string, tx: DbLike = db): Promise<CartR
   const items: CartResponseDTO["items"] = rows.map((row: any) => ({
     productId: row.productId,
     name: row.name,
+    description: row.description,
     price: row.price,
     quantity: row.quantity,
     lineTotal: row.price * row.quantity,

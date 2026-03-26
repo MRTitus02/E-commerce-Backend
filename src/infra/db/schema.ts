@@ -4,6 +4,7 @@ import { pgTable, uuid, text, integer, timestamp, check, unique } from "drizzle-
 export const products = pgTable("products", {
   id: uuid("id").defaultRandom().primaryKey(),
   name: text("name").notNull(),
+  description: text("description").notNull(),
   price: integer("price").notNull(),
   stock: integer("stock").notNull(),
   createdAt: timestamp("created_at").defaultNow(),

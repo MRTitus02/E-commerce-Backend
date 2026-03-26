@@ -32,8 +32,8 @@ describe("Cart API", () => {
     authToken = signAccessToken({ id: testUserId, email: "cart@example.com", role: "user" });
 
     const productRes = await db.insert(products).values([
-      { name: "Keyboard", price: 2500, stock: 10 },
-      { name: "Mouse", price: 1500, stock: 8 },
+      { name: "Keyboard", description: "Mechanical keyboard", price: 2500, stock: 10 },
+      { name: "Mouse", description: "Wireless mouse", price: 1500, stock: 8 },
     ]).returning();
 
     firstProductId = productRes[0].id;
@@ -65,6 +65,7 @@ describe("Cart API", () => {
     const cartAfterAdd = await addSecond.json() as any;
     expect(cartAfterAdd.items).toHaveLength(2);
     expect(cartAfterAdd.totalAmount).toBe(6500);
+    expect(cartAfterAdd.items[0].description).toBeTruthy();
 
     const updateItem = await app.request(`/cart/items/${firstProductId}`, {
       method: "PUT",
