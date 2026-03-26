@@ -26,3 +26,22 @@ lerna-debug.log*
 
 # misc
 .DS_Store
+
+build/
+dist/
+coverage/
+*.snap
+*.swp
+
+# test
+/__tests__/
+/__mocks__/
+
+# local env files
+.env*.local
+
+# vercel
+.vercel
+
+# next
+.next

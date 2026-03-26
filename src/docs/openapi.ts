@@ -13,6 +13,12 @@ import {
 import { createUserSchema, updateUserSchema, userResponseSchema } from "../dto/user.dto.js";
 import { createOrderSchema, orderResponseSchema } from "../dto/order.dto.js";
 import { loginSchema, registerSchema, refreshSchema, authResponseSchema } from "../dto/auth.dto.js";
+import {
+  paymentWebhookMockRequestSchema,
+  paymentWebhookMockResponseSchema,
+  paymentWebhookRequestSchema,
+  paymentWebhookResponseSchema,
+} from "../dto/payment.dto";
 
 
 // OpenAPI app (for generating spec)
@@ -374,6 +380,62 @@ openapi.openapi(
         content: { "application/json": { schema: authResponseSchema } },
       },
     },
+  }),
+  noopHandler
+);
+
+// =======================
+// Payment Webhooks: Mock + Real
+// =======================
+
+openapi.openapi(
+  createAutoRoute({
+    method: "post",
+    path: "/webhooks/payments/mock",
+    tag: "Payment",
+    summary: "Mock payment-provider webhook (local testing)",
+    description:
+      "Creates a pending payment and simulates a provider webhook event by calling the real /webhooks/payments handler internally.",
+    requestSchema: paymentWebhookMockRequestSchema,
+    responseSchema: paymentWebhookMockResponseSchema,
+    responses: {
+      400: {
+        description: "Invalid request",
+      },
+      500: {
+        description: "Internal server error",
+      },
+    },
+    security: [],
+  }),
+  noopHandler
+);
+
+openapi.openapi(
+  createAutoRoute({
+    method: "post",
+    path: "/webhooks/payments",
+    tag: "Payment",
+    summary: "Payment webhook endpoint",
+    description:
+      "Verifies a stripe-like signature from the `stripe-signature` header using WEBHOOK_SECRET, then updates `orders.status` and `payments.status` based on `payment_intent.succeeded` / `payment_intent.failed`.",
+    requestSchema: paymentWebhookRequestSchema,
+    responseSchema: paymentWebhookResponseSchema,
+    responses: {
+      400: {
+        description: "Invalid webhook payload",
+      },
+      401: {
+        description: "Invalid signature",
+      },
+      404: {
+        description: "Payment not found",
+      },
+      500: {
+        description: "Internal server error",
+      },
+    },
+    security: [],
   }),
   noopHandler
 );
