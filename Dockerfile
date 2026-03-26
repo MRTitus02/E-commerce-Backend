@@ -4,20 +4,26 @@ FROM node:20-alpine
 # Set working directory
 WORKDIR /app
 
-# Copy package.json and lock file first (for caching)
+# Copy only package files first (better caching)
 COPY package*.json ./
 
 # Install dependencies
-RUN npm ci --omit=dev
+RUN npm ci
 
-# Copy the rest of the app
+# Copy rest of the app
 COPY . .
 
-# Build TypeScript if needed
+# Build the app
 RUN npm run build
 
-# Expose the port (Render sets PORT env)
+# Remove dev dependencies
+RUN npm prune --production
+
+# Set environment
+ENV NODE_ENV=production
+
+# Expose app port
 EXPOSE 3000
 
-# Use the PORT environment variable from Render
-CMD ["sh", "-c", "node dist/index.js"]
+# Start the app
+CMD ["node", "dist/index.js"]
