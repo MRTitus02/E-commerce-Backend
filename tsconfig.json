@@ -7,7 +7,6 @@
     "esModuleInterop": true,
     "verbatimModuleSyntax": false,
     "skipLibCheck": true,
-    "ignoreDeprecations": "6.0",
     "types": ["node"],
     "outDir": "./dist",
     "rootDir": "./src",

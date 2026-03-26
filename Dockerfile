@@ -1,29 +1,35 @@
-# Use lightweight Node image
-FROM node:20-alpine
+# Stage 1: Build
+FROM node:20-bullseye AS builder
 
-# Set working directory
 WORKDIR /app
 
-# Copy only package files first (better caching)
+# Copy package files
 COPY package*.json ./
 
-# Install dependencies
+# Install ALL dependencies (including dev)
 RUN npm ci
 
-# Copy rest of the app
+# Copy source code
 COPY . .
 
-# Build the app
+# Build TypeScript
 RUN npm run build
 
-# Remove dev dependencies
-RUN npm prune --production
+# Stage 2: Production
+FROM node:20-bullseye
 
-# Set environment
-ENV NODE_ENV=production
+WORKDIR /app
 
-# Expose app port
+# Copy only prod dependencies
+COPY package*.json ./
+RUN npm ci --omit=dev
+
+# Copy compiled JS from builder
+COPY --from=builder /app/dist ./dist
+
+# Copy other necessary files (if any, like .env.example)
+# COPY .env .  # optional; use env-file at runtime
+
 EXPOSE 3000
 
-# Start the app
 CMD ["node", "dist/index.js"]
