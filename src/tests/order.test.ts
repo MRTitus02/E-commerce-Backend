@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import app from '../index';
 import { db } from '../infra/db/client';
-import { products, orders, order_items, idempotencyKeys, users } from '../infra/db/schema';
+import { cart_items, carts, payments, products, orders, order_items, idempotencyKeys, users } from '../infra/db/schema';
 import { eq } from 'drizzle-orm';
 import { signAccessToken } from '../utils/jwt';
 
@@ -12,6 +12,9 @@ describe('Order API', () => {
 
   beforeAll(async () => {
     // Clear test data
+    await db.delete(cart_items);
+    await db.delete(carts);
+    await db.delete(payments);
     await db.delete(order_items);
     await db.delete(orders);
     await db.delete(idempotencyKeys);

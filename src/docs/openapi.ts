@@ -19,6 +19,7 @@ import {
   paymentWebhookRequestSchema,
   paymentWebhookResponseSchema,
 } from "../dto/payment.dto";
+import { addCartItemSchema, cartResponseSchema, updateCartItemSchema } from "../dto/cart.dto";
 
 
 // OpenAPI app (for generating spec)
@@ -304,7 +305,7 @@ openapi.openapi(
     path: "/orders",
     tag: "Order",
     summary: "Create a new order",
-    description: "Creates a new order from products idempotently.",
+    description: "Creates a new order from explicit items, or from the authenticated user's cart when `items` is omitted.",
 
     requestSchema: createOrderSchema,
     responseSchema: orderResponseSchema,
@@ -315,6 +316,130 @@ openapi.openapi(
         content: {
           "application/json": {
             schema: orderResponseSchema,
+          },
+        },
+      },
+    },
+    security: [{ bearerAuth: [] }],
+  }),
+  noopHandler
+);
+
+// Cart: Get current user's cart
+openapi.openapi(
+  createAutoRoute({
+    method: "get",
+    path: "/cart",
+    tag: "Cart",
+    summary: "Get current cart",
+    description: "Returns the authenticated user's cart, creating an empty cart if one does not exist yet.",
+    responseSchema: cartResponseSchema,
+    responses: {
+      200: {
+        description: "Cart retrieved successfully",
+        content: {
+          "application/json": {
+            schema: cartResponseSchema,
+          },
+        },
+      },
+    },
+    security: [{ bearerAuth: [] }],
+  }),
+  noopHandler
+);
+
+// Cart: Add item
+openapi.openapi(
+  createAutoRoute({
+    method: "post",
+    path: "/cart/items",
+    tag: "Cart",
+    summary: "Add item to cart",
+    description: "Adds a product to the authenticated user's cart, incrementing quantity if the item already exists.",
+    requestSchema: addCartItemSchema,
+    responseSchema: cartResponseSchema,
+    responses: {
+      201: {
+        description: "Cart updated successfully",
+        content: {
+          "application/json": {
+            schema: cartResponseSchema,
+          },
+        },
+      },
+    },
+    security: [{ bearerAuth: [] }],
+  }),
+  noopHandler
+);
+
+// Cart: Update item quantity
+openapi.openapi(
+  createAutoRoute({
+    method: "put",
+    path: "/cart/items/{productId}",
+    tag: "Cart",
+    summary: "Update cart item quantity",
+    description: "Sets a new quantity for a cart item belonging to the authenticated user.",
+    paramSchema: z.object({ productId: z.string().uuid() }),
+    requestSchema: updateCartItemSchema,
+    responseSchema: cartResponseSchema,
+    responses: {
+      200: {
+        description: "Cart updated successfully",
+        content: {
+          "application/json": {
+            schema: cartResponseSchema,
+          },
+        },
+      },
+    },
+    security: [{ bearerAuth: [] }],
+  }),
+  noopHandler
+);
+
+// Cart: Remove item
+openapi.openapi(
+  createAutoRoute({
+    method: "delete",
+    path: "/cart/items/{productId}",
+    tag: "Cart",
+    summary: "Remove item from cart",
+    description: "Removes a product from the authenticated user's cart.",
+    paramSchema: z.object({ productId: z.string().uuid() }),
+    responseSchema: cartResponseSchema,
+    responses: {
+      200: {
+        description: "Cart updated successfully",
+        content: {
+          "application/json": {
+            schema: cartResponseSchema,
+          },
+        },
+      },
+    },
+    security: [{ bearerAuth: [] }],
+  }),
+  noopHandler
+);
+
+// Cart: Clear cart
+openapi.openapi(
+  createAutoRoute({
+    method: "delete",
+    path: "/cart",
+    tag: "Cart",
+    summary: "Clear cart",
+    description: "Removes all items from the authenticated user's cart.",
+    responseSchema: cartResponseSchema,
+    responses: {
+      200: {
+        description: "Cart cleared successfully",
+        content: {
+          "application/json": {
+            schema: cartResponseSchema,
           },
         },
       },

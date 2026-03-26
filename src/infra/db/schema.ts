@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm"
-import { pgTable, uuid, text, integer, timestamp, check } from "drizzle-orm/pg-core"
+import { pgTable, uuid, text, integer, timestamp, check, unique } from "drizzle-orm/pg-core"
 
 export const products = pgTable("products", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -30,6 +30,15 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at").defaultNow(),
 })
 
+export const carts = pgTable("carts", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: uuid("user_id").notNull().references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  userUnique: unique("carts_user_id_unique").on(table.userId),
+}))
+
 export const order_items = pgTable("order_items", {
   id: uuid("id").defaultRandom().primaryKey(),
   orderId: uuid("order_id").notNull().references(() => orders.id),
@@ -37,6 +46,18 @@ export const order_items = pgTable("order_items", {
   quantity: integer("quantity").notNull(),
   price: integer("price").notNull(),
 })
+
+export const cart_items = pgTable("cart_items", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  cartId: uuid("cart_id").notNull().references(() => carts.id),
+  productId: uuid("product_id").notNull().references(() => products.id),
+  quantity: integer("quantity").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  quantityCheck: check("cart_items_quantity_check", sql`${table.quantity} > 0`),
+  cartProductUnique: unique("cart_items_cart_id_product_id_unique").on(table.cartId, table.productId),
+}))
 
 export const idempotencyKeys = pgTable("idempotency_keys", {
   key: text("key").primaryKey(),
