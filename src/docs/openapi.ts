@@ -1,4 +1,3 @@
-// docs/openapi.ts
 import { Hono } from "hono";
 import { OpenAPIHono } from "@hono/zod-openapi";
 import { Scalar } from "@scalar/hono-api-reference";
@@ -21,15 +20,15 @@ import {
 } from "../dto/payment.dto";
 import { addCartItemSchema, cartResponseSchema, updateCartItemSchema } from "../dto/cart.dto";
 
-
-// OpenAPI app (for generating spec)
 export const openapi = new OpenAPIHono();
 
 const OPENAPI_DOCUMENT_CONFIG = {
   openapi: "3.0.0",
   info: {
-    title: "My App API",
+    title: "Orders API",
     version: "1.0.0",
+    description:
+      "E-commerce core API covering authentication, users, products, carts, orders, and payment webhooks.",
   },
   components: {
     securitySchemes: {
@@ -40,423 +39,102 @@ const OPENAPI_DOCUMENT_CONFIG = {
       },
     },
   },
-  security: [{ bearerAuth: [] }],
 };
 
 const noopHandler = async (c: any) => c.text("", 204);
 
-//  Product: Create
-openapi.openapi(
-  createAutoRoute({
-    method: "post",
-    path: "/products",
-    tag: "Product",
-    summary: "Create a new product",
-    description: "Creates a new product with the provided details",
-
-    requestSchema: createProductSchema,
-    responseSchema: productResponseSchema,
-
-    responses: {
-      201: {
-        description: "Product created successfully",
-        content: {
-          "application/json": {
-            schema: productResponseSchema,
-          },
-        },
-      },
-    },
-
-    security: [{ bearerAuth: [] }],
+const authHeaderSchema = z.object({
+  authorization: z.string().openapi({
+    example: "Bearer <access-token>",
+    description: "JWT bearer token returned by the auth endpoints.",
   }),
-  noopHandler
-);
+});
 
-openapi.openapi(
-    createAutoRoute({
-      method: "get",
-      path: "/products",
-      tag: "Product",
-      summary: "Get all products",
-      description: "Retrieves a list of all products",
-      responseSchema: z.array(productResponseSchema),
+const idempotencyHeaderSchema = authHeaderSchema.extend({
+  "idempotency-key": z.string().min(1).openapi({
+    example: "checkout-2026-03-27-001",
+    description: "Required for POST /orders. Reusing the same key returns the cached order response.",
+  }),
+});
 
-      responses: {
-        200: {
-          description: "List of products retrieved successfully",
-          content: {
-            "application/json": {
-              schema: z.array(productResponseSchema),
-            },
-          },
-        },
-      }
+const stripeSignatureHeaderSchema = z.object({
+  "stripe-signature": z.string().openapi({
+    example: "t=1711536000,v1=<hex-signature>",
+    description: "Stripe-like signature header verified with WEBHOOK_SECRET.",
+  }),
+});
+
+const messageSchema = z.object({
+  message: z.string(),
+});
+
+const validationErrorSchema = z.object({
+  message: z.literal("Validation failed"),
+  issues: z.array(
+    z.object({
+      path: z.string(),
+      message: z.string(),
     }),
-    noopHandler
-  );
+  ),
+});
 
-openapi.openapi(
-    createAutoRoute({
-      method: "get",
-      path: "/products/{id}",
-      tag: "Product",
-      summary: "Get a product by ID",
-      description: "Retrieves a product by its ID",
+const webhookErrorSchema = z.object({
+  success: z.literal(false),
+  error: z.string(),
+});
 
-      paramSchema: z.object({ id: z.string() }),
-      responseSchema: productResponseSchema,
+const productDeleteResponseSchema = z.object({
+  message: z.string(),
+  product: productResponseSchema,
+});
 
-      responses: {
-        200: {
-          description: "Product retrieved successfully",
-          content: {
-            "application/json": {
-                schema: productResponseSchema,
-            },
-          },
-        },
-      }
-    }),
-    noopHandler
-  );
+const userDeleteResponseSchema = z.object({
+  message: z.string(),
+  user: userResponseSchema,
+});
 
-openapi.openapi(
-    createAutoRoute({
-      method: "put",
-      path: "/products/{id}",
-      tag: "Product",
-      summary: "Update a product by ID",
-      description: "Updates a product by its ID",
-
-      paramSchema: z.object({ id: z.string() }),
-      requestSchema: updateProductSchema,
-      responseSchema: productResponseSchema,
-
-      responses: {
-        200: {
-          description: "Product updated successfully",
-          content: {
-            "application/json": {
-                schema: productResponseSchema,
-            },
-          },
-        },
-      }
-    }),
-    noopHandler
-  );
-
-openapi.openapi(
-    createAutoRoute({
-      method: "delete",
-      path: "/products/{id}",
-      tag: "Product",
-      summary: "Delete a product by ID",
-      description: "Deletes a product by its ID",
-
-      paramSchema: z.object({ id: z.string() }),
-      responses: {
-        200: {
-          description: "Product deleted successfully",
-          content: {
-            "application/json": {
-                schema: z.object({ message: z.string() }),
-            },
-          },
-      }
-      }
-          }
-    ),
-    noopHandler
-  );
-
-//  User: Create
-openapi.openapi(
-  createAutoRoute({
-    method: "post",
-    path: "/users",
-    tag: "User",
-    summary: "Create a new user",
-    description: "Creates a new user with the provided details",
-
-    requestSchema: createUserSchema,
-    responseSchema: userResponseSchema,
-
-    responses: {
-      201: {
-        description: "User created successfully",
-        content: {
-          "application/json": {
-            schema: userResponseSchema,
-          },
-        },
+const commonAuthResponses = {
+  401: {
+    description: "Missing, invalid, or expired bearer token",
+    content: {
+      "application/json": {
+        schema: messageSchema,
       },
     },
+  },
+};
 
-    security: [{ bearerAuth: [] }],
-  }),
-  noopHandler
-);
-
-openapi.openapi(
-    createAutoRoute({
-      method: "get",
-      path: "/users",
-      tag: "User",
-      summary: "Get all users",
-      description: "Retrieves a list of all users",
-
-      responseSchema: z.array(userResponseSchema),
-
-      responses: {
-        200: {
-          description: "List of users retrieved successfully",
-          content: {
-            "application/json": {
-              schema: z.array(userResponseSchema),
-            },
-          },
-        },
-      }
-    }),
-    noopHandler
-  );
-
-openapi.openapi(
-    createAutoRoute({
-      method: "get",
-      path: "/users/{id}",
-      tag: "User",
-      summary: "Get a user by ID",
-      description: "Retrieves a user by its ID",
-
-      paramSchema: z.object({ id: z.string() }),
-      responseSchema: userResponseSchema,
-
-      responses: {
-        200: {
-          description: "User retrieved successfully",
-          content: {
-            "application/json": {
-                schema: userResponseSchema,
-            },
-          },
-        },
-      }
-    }),
-    noopHandler
-  );
-
-openapi.openapi(
-    createAutoRoute({
-      method: "put",
-      path: "/users/{id}",
-      tag: "User",
-      summary: "Update a user by ID",
-      description: "Updates a user by its ID",
-
-      paramSchema: z.object({ id: z.string() }),
-      requestSchema: updateUserSchema,
-      responseSchema: userResponseSchema,
-
-      responses: {
-        200: {
-          description: "User updated successfully",
-          content: {
-            "application/json": {
-                schema: userResponseSchema,
-            },
-          },
-        },
-      }
-    }),
-    noopHandler
-  );
-
-openapi.openapi(
-    createAutoRoute({
-      method: "delete",
-      path: "/users/{id}",
-      tag: "User",
-      summary: "Delete a user by ID",
-      description: "Deletes a user by its ID",
-
-      paramSchema: z.object({ id: z.string() }),
-      responses: {
-        200: {
-          description: "User deleted successfully",
-          content: {
-            "application/json": {
-                schema: z.object({ message: z.string() }),
-            },
-          },
-      }
-      }
-          }
-    ),
-    noopHandler
-  );
-
-//  Order: Create
-openapi.openapi(
-  createAutoRoute({
-    method: "post",
-    path: "/orders",
-    tag: "Order",
-    summary: "Create a new order",
-    description: "Creates a new order from explicit items, or from the authenticated user's cart when `items` is omitted.",
-
-    requestSchema: createOrderSchema,
-    responseSchema: orderResponseSchema,
-
-    responses: {
-      201: {
-        description: "Order created successfully",
-        content: {
-          "application/json": {
-            schema: orderResponseSchema,
-          },
-        },
+const adminOnlyResponses = {
+  403: {
+    description: "Authenticated user is not an admin",
+    content: {
+      "application/json": {
+        schema: messageSchema,
       },
     },
-    security: [{ bearerAuth: [] }],
-  }),
-  noopHandler
-);
+  },
+};
 
-// Cart: Get current user's cart
-openapi.openapi(
-  createAutoRoute({
-    method: "get",
-    path: "/cart",
-    tag: "Cart",
-    summary: "Get current cart",
-    description: "Returns the authenticated user's cart, creating an empty cart if one does not exist yet.",
-    responseSchema: cartResponseSchema,
-    responses: {
-      200: {
-        description: "Cart retrieved successfully",
-        content: {
-          "application/json": {
-            schema: cartResponseSchema,
-          },
-        },
-      },
-    },
-    security: [{ bearerAuth: [] }],
-  }),
-  noopHandler
-);
+// Introduction
+openapi.doc31("/_introduction", {
+  openapi: "3.1.0",
+  info: {
+    title: "Orders API",
+    version: "1.0.0",
+    description:
+      "Documentation order: introduction, auth, users, product, cart, order, payment.",
+  },
+});
 
-// Cart: Add item
-openapi.openapi(
-  createAutoRoute({
-    method: "post",
-    path: "/cart/items",
-    tag: "Cart",
-    summary: "Add item to cart",
-    description: "Adds a product to the authenticated user's cart, incrementing quantity if the item already exists.",
-    requestSchema: addCartItemSchema,
-    responseSchema: cartResponseSchema,
-    responses: {
-      201: {
-        description: "Cart updated successfully",
-        content: {
-          "application/json": {
-            schema: cartResponseSchema,
-          },
-        },
-      },
-    },
-    security: [{ bearerAuth: [] }],
-  }),
-  noopHandler
-);
-
-// Cart: Update item quantity
-openapi.openapi(
-  createAutoRoute({
-    method: "put",
-    path: "/cart/items/{productId}",
-    tag: "Cart",
-    summary: "Update cart item quantity",
-    description: "Sets a new quantity for a cart item belonging to the authenticated user.",
-    paramSchema: z.object({ productId: z.string().uuid() }),
-    requestSchema: updateCartItemSchema,
-    responseSchema: cartResponseSchema,
-    responses: {
-      200: {
-        description: "Cart updated successfully",
-        content: {
-          "application/json": {
-            schema: cartResponseSchema,
-          },
-        },
-      },
-    },
-    security: [{ bearerAuth: [] }],
-  }),
-  noopHandler
-);
-
-// Cart: Remove item
-openapi.openapi(
-  createAutoRoute({
-    method: "delete",
-    path: "/cart/items/{productId}",
-    tag: "Cart",
-    summary: "Remove item from cart",
-    description: "Removes a product from the authenticated user's cart.",
-    paramSchema: z.object({ productId: z.string().uuid() }),
-    responseSchema: cartResponseSchema,
-    responses: {
-      200: {
-        description: "Cart updated successfully",
-        content: {
-          "application/json": {
-            schema: cartResponseSchema,
-          },
-        },
-      },
-    },
-    security: [{ bearerAuth: [] }],
-  }),
-  noopHandler
-);
-
-// Cart: Clear cart
-openapi.openapi(
-  createAutoRoute({
-    method: "delete",
-    path: "/cart",
-    tag: "Cart",
-    summary: "Clear cart",
-    description: "Removes all items from the authenticated user's cart.",
-    responseSchema: cartResponseSchema,
-    responses: {
-      200: {
-        description: "Cart cleared successfully",
-        content: {
-          "application/json": {
-            schema: cartResponseSchema,
-          },
-        },
-      },
-    },
-    security: [{ bearerAuth: [] }],
-  }),
-  noopHandler
-);
-
-// Auth: Register
+// Auth
 openapi.openapi(
   createAutoRoute({
     method: "post",
     path: "/auth/register",
     tag: "Auth",
     summary: "Register a new user",
-    description: "Creates a new user account and returns access + refresh tokens.",
+    description:
+      "Creates a new user account and returns access and refresh tokens. The request may include a role field, which currently matches the implementation contract.",
     requestSchema: registerSchema,
     responseSchema: authResponseSchema,
     responses: {
@@ -464,19 +142,27 @@ openapi.openapi(
         description: "User registered successfully",
         content: { "application/json": { schema: authResponseSchema } },
       },
+      400: {
+        description: "Validation failed",
+        content: { "application/json": { schema: validationErrorSchema } },
+      },
+      409: {
+        description: "Email already in use",
+        content: { "application/json": { schema: messageSchema } },
+      },
     },
+    security: [],
   }),
-  noopHandler
+  noopHandler,
 );
 
-// Auth: Login
 openapi.openapi(
   createAutoRoute({
     method: "post",
     path: "/auth/login",
     tag: "Auth",
     summary: "Login",
-    description: "Authenticates a user and returns access + refresh tokens.",
+    description: "Authenticates a user and returns access and refresh tokens.",
     requestSchema: loginSchema,
     responseSchema: authResponseSchema,
     responses: {
@@ -484,19 +170,27 @@ openapi.openapi(
         description: "Login successful",
         content: { "application/json": { schema: authResponseSchema } },
       },
+      400: {
+        description: "Validation failed",
+        content: { "application/json": { schema: validationErrorSchema } },
+      },
+      401: {
+        description: "Invalid credentials",
+        content: { "application/json": { schema: messageSchema } },
+      },
     },
+    security: [],
   }),
-  noopHandler
+  noopHandler,
 );
 
-// Auth: Refresh
 openapi.openapi(
   createAutoRoute({
     method: "post",
     path: "/auth/refresh",
     tag: "Auth",
     summary: "Refresh tokens",
-    description: "Uses a refresh token to issue a new access + refresh token pair.",
+    description: "Uses a refresh token to issue a new access and refresh token pair.",
     requestSchema: refreshSchema,
     responseSchema: authResponseSchema,
     responses: {
@@ -504,36 +198,510 @@ openapi.openapi(
         description: "Tokens refreshed successfully",
         content: { "application/json": { schema: authResponseSchema } },
       },
+      400: {
+        description: "Validation failed",
+        content: { "application/json": { schema: validationErrorSchema } },
+      },
+      401: {
+        description: "Invalid or expired refresh token",
+        content: { "application/json": { schema: messageSchema } },
+      },
+      404: {
+        description: "User not found for refresh token subject",
+        content: { "application/json": { schema: messageSchema } },
+      },
     },
+    security: [],
   }),
-  noopHandler
+  noopHandler,
 );
 
-// =======================
-// Payment Webhooks: Mock + Real
-// =======================
+// Users
+openapi.openapi(
+  createAutoRoute({
+    method: "post",
+    path: "/users",
+    tag: "User",
+    summary: "Create a new user",
+    description:
+      "Creates a user record. This endpoint requires an authenticated admin token. Passwords are stored hashed by the service layer.",
+    headerSchema: authHeaderSchema,
+    requestSchema: createUserSchema,
+    responseSchema: userResponseSchema,
+    responses: {
+      201: {
+        description: "User created successfully",
+        content: { "application/json": { schema: userResponseSchema } },
+      },
+      400: {
+        description: "Validation failed",
+        content: { "application/json": { schema: validationErrorSchema } },
+      },
+      409: {
+        description: "User email already exists",
+        content: { "application/json": { schema: messageSchema } },
+      },
+      ...commonAuthResponses,
+      ...adminOnlyResponses,
+    },
+    security: [{ bearerAuth: [] }],
+  }),
+  noopHandler,
+);
 
+openapi.openapi(
+  createAutoRoute({
+    method: "get",
+    path: "/users",
+    tag: "User",
+    summary: "Get all users",
+    description: "Returns all users. This endpoint requires an authenticated admin token.",
+    headerSchema: authHeaderSchema,
+    responseSchema: z.array(userResponseSchema),
+    responses: {
+      200: {
+        description: "List of users retrieved successfully",
+        content: { "application/json": { schema: z.array(userResponseSchema) } },
+      },
+      ...commonAuthResponses,
+      ...adminOnlyResponses,
+    },
+    security: [{ bearerAuth: [] }],
+  }),
+  noopHandler,
+);
+
+openapi.openapi(
+  createAutoRoute({
+    method: "get",
+    path: "/users/{id}",
+    tag: "User",
+    summary: "Get a user by ID",
+    description: "Returns a single user by UUID for an authenticated user.",
+    headerSchema: authHeaderSchema,
+    paramSchema: z.object({ id: z.string().uuid() }),
+    responseSchema: userResponseSchema,
+    responses: {
+      200: {
+        description: "User retrieved successfully",
+        content: { "application/json": { schema: userResponseSchema } },
+      },
+      400: {
+        description: "Malformed user ID",
+        content: { "application/json": { schema: messageSchema } },
+      },
+      404: {
+        description: "User not found",
+        content: { "application/json": { schema: messageSchema } },
+      },
+      ...commonAuthResponses,
+    },
+    security: [{ bearerAuth: [] }],
+  }),
+  noopHandler,
+);
+
+openapi.openapi(
+  createAutoRoute({
+    method: "put",
+    path: "/users/{id}",
+    tag: "User",
+    summary: "Update a user by ID",
+    description:
+      "Updates a user by UUID for an authenticated user. Password updates are re-hashed before persistence.",
+    headerSchema: authHeaderSchema,
+    paramSchema: z.object({ id: z.string().uuid() }),
+    requestSchema: updateUserSchema,
+    responseSchema: userResponseSchema,
+    responses: {
+      200: {
+        description: "User updated successfully",
+        content: { "application/json": { schema: userResponseSchema } },
+      },
+      400: {
+        description: "Validation failed or malformed user ID",
+        content: { "application/json": { schema: z.union([messageSchema, validationErrorSchema]) } },
+      },
+      404: {
+        description: "User not found",
+        content: { "application/json": { schema: messageSchema } },
+      },
+      409: {
+        description: "User email already exists",
+        content: { "application/json": { schema: messageSchema } },
+      },
+      ...commonAuthResponses,
+    },
+    security: [{ bearerAuth: [] }],
+  }),
+  noopHandler,
+);
+
+openapi.openapi(
+  createAutoRoute({
+    method: "delete",
+    path: "/users/{id}",
+    tag: "User",
+    summary: "Delete a user by ID",
+    description: "Deletes a user by UUID for an authenticated user.",
+    headerSchema: authHeaderSchema,
+    paramSchema: z.object({ id: z.string().uuid() }),
+    responseSchema: userDeleteResponseSchema,
+    responses: {
+      200: {
+        description: "User deleted successfully",
+        content: { "application/json": { schema: userDeleteResponseSchema } },
+      },
+      400: {
+        description: "Malformed user ID",
+        content: { "application/json": { schema: messageSchema } },
+      },
+      404: {
+        description: "User not found",
+        content: { "application/json": { schema: messageSchema } },
+      },
+      ...commonAuthResponses,
+    },
+    security: [{ bearerAuth: [] }],
+  }),
+  noopHandler,
+);
+
+// Product
+openapi.openapi(
+  createAutoRoute({
+    method: "post",
+    path: "/products",
+    tag: "Product",
+    summary: "Create a new product",
+    description:
+      "Creates a product. This endpoint requires an authenticated user token. Product creation is not currently admin-only in the implementation.",
+    headerSchema: authHeaderSchema,
+    requestSchema: createProductSchema,
+    responseSchema: productResponseSchema,
+    responses: {
+      201: {
+        description: "Product created successfully",
+        content: { "application/json": { schema: productResponseSchema } },
+      },
+      400: {
+        description: "Validation failed",
+        content: { "application/json": { schema: validationErrorSchema } },
+      },
+      ...commonAuthResponses,
+    },
+    security: [{ bearerAuth: [] }],
+  }),
+  noopHandler,
+);
+
+openapi.openapi(
+  createAutoRoute({
+    method: "get",
+    path: "/products",
+    tag: "Product",
+    summary: "Get all products",
+    description: "Returns all products visible to an authenticated user.",
+    headerSchema: authHeaderSchema,
+    responseSchema: z.array(productResponseSchema),
+    responses: {
+      200: {
+        description: "List of products retrieved successfully",
+        content: { "application/json": { schema: z.array(productResponseSchema) } },
+      },
+      ...commonAuthResponses,
+    },
+    security: [{ bearerAuth: [] }],
+  }),
+  noopHandler,
+);
+
+openapi.openapi(
+  createAutoRoute({
+    method: "get",
+    path: "/products/{id}",
+    tag: "Product",
+    summary: "Get a product by ID",
+    description: "Returns a single product by UUID for an authenticated user.",
+    headerSchema: authHeaderSchema,
+    paramSchema: z.object({ id: z.string().uuid() }),
+    responseSchema: productResponseSchema,
+    responses: {
+      200: {
+        description: "Product retrieved successfully",
+        content: { "application/json": { schema: productResponseSchema } },
+      },
+      400: {
+        description: "Malformed product ID",
+        content: { "application/json": { schema: messageSchema } },
+      },
+      404: {
+        description: "Product not found",
+        content: { "application/json": { schema: messageSchema } },
+      },
+      ...commonAuthResponses,
+    },
+    security: [{ bearerAuth: [] }],
+  }),
+  noopHandler,
+);
+
+openapi.openapi(
+  createAutoRoute({
+    method: "put",
+    path: "/products/{id}",
+    tag: "Product",
+    summary: "Update a product by ID",
+    description: "Updates a product by UUID. This endpoint requires an authenticated admin token.",
+    headerSchema: authHeaderSchema,
+    paramSchema: z.object({ id: z.string().uuid() }),
+    requestSchema: updateProductSchema,
+    responseSchema: productResponseSchema,
+    responses: {
+      200: {
+        description: "Product updated successfully",
+        content: { "application/json": { schema: productResponseSchema } },
+      },
+      400: {
+        description: "Validation failed or malformed product ID",
+        content: { "application/json": { schema: z.union([messageSchema, validationErrorSchema]) } },
+      },
+      404: {
+        description: "Product not found",
+        content: { "application/json": { schema: messageSchema } },
+      },
+      ...commonAuthResponses,
+      ...adminOnlyResponses,
+    },
+    security: [{ bearerAuth: [] }],
+  }),
+  noopHandler,
+);
+
+openapi.openapi(
+  createAutoRoute({
+    method: "delete",
+    path: "/products/{id}",
+    tag: "Product",
+    summary: "Delete a product by ID",
+    description: "Deletes a product by UUID. This endpoint requires an authenticated admin token.",
+    headerSchema: authHeaderSchema,
+    paramSchema: z.object({ id: z.string().uuid() }),
+    responseSchema: productDeleteResponseSchema,
+    responses: {
+      200: {
+        description: "Product deleted successfully",
+        content: { "application/json": { schema: productDeleteResponseSchema } },
+      },
+      400: {
+        description: "Malformed product ID",
+        content: { "application/json": { schema: messageSchema } },
+      },
+      404: {
+        description: "Product not found",
+        content: { "application/json": { schema: messageSchema } },
+      },
+      ...commonAuthResponses,
+      ...adminOnlyResponses,
+    },
+    security: [{ bearerAuth: [] }],
+  }),
+  noopHandler,
+);
+
+// Cart
+openapi.openapi(
+  createAutoRoute({
+    method: "get",
+    path: "/cart",
+    tag: "Cart",
+    summary: "Get current cart",
+    description:
+      "Returns the authenticated user's cart. If the user has no cart yet, an empty cart is created on demand.",
+    headerSchema: authHeaderSchema,
+    responseSchema: cartResponseSchema,
+    responses: {
+      200: {
+        description: "Cart retrieved successfully",
+        content: { "application/json": { schema: cartResponseSchema } },
+      },
+      ...commonAuthResponses,
+    },
+    security: [{ bearerAuth: [] }],
+  }),
+  noopHandler,
+);
+
+openapi.openapi(
+  createAutoRoute({
+    method: "post",
+    path: "/cart/items",
+    tag: "Cart",
+    summary: "Add item to cart",
+    description:
+      "Adds a product to the authenticated user's cart. If the product is already present, the quantity is incremented.",
+    headerSchema: authHeaderSchema,
+    requestSchema: addCartItemSchema,
+    responseSchema: cartResponseSchema,
+    responses: {
+      201: {
+        description: "Cart updated successfully",
+        content: { "application/json": { schema: cartResponseSchema } },
+      },
+      400: {
+        description: "Validation failed",
+        content: { "application/json": { schema: validationErrorSchema } },
+      },
+      404: {
+        description: "Product not found",
+        content: { "application/json": { schema: messageSchema } },
+      },
+      ...commonAuthResponses,
+    },
+    security: [{ bearerAuth: [] }],
+  }),
+  noopHandler,
+);
+
+openapi.openapi(
+  createAutoRoute({
+    method: "put",
+    path: "/cart/items/{productId}",
+    tag: "Cart",
+    summary: "Update cart item quantity",
+    description:
+      "Sets a new quantity for a specific product already in the authenticated user's cart.",
+    headerSchema: authHeaderSchema,
+    paramSchema: z.object({ productId: z.string().uuid() }),
+    requestSchema: updateCartItemSchema,
+    responseSchema: cartResponseSchema,
+    responses: {
+      200: {
+        description: "Cart updated successfully",
+        content: { "application/json": { schema: cartResponseSchema } },
+      },
+      400: {
+        description: "Validation failed or malformed product ID",
+        content: { "application/json": { schema: z.union([messageSchema, validationErrorSchema]) } },
+      },
+      404: {
+        description: "Product or cart item not found",
+        content: { "application/json": { schema: messageSchema } },
+      },
+      ...commonAuthResponses,
+    },
+    security: [{ bearerAuth: [] }],
+  }),
+  noopHandler,
+);
+
+openapi.openapi(
+  createAutoRoute({
+    method: "delete",
+    path: "/cart/items/{productId}",
+    tag: "Cart",
+    summary: "Remove item from cart",
+    description: "Removes a product from the authenticated user's cart.",
+    headerSchema: authHeaderSchema,
+    paramSchema: z.object({ productId: z.string().uuid() }),
+    responseSchema: cartResponseSchema,
+    responses: {
+      200: {
+        description: "Cart updated successfully",
+        content: { "application/json": { schema: cartResponseSchema } },
+      },
+      400: {
+        description: "Malformed product ID",
+        content: { "application/json": { schema: messageSchema } },
+      },
+      404: {
+        description: "Cart item not found",
+        content: { "application/json": { schema: messageSchema } },
+      },
+      ...commonAuthResponses,
+    },
+    security: [{ bearerAuth: [] }],
+  }),
+  noopHandler,
+);
+
+openapi.openapi(
+  createAutoRoute({
+    method: "delete",
+    path: "/cart",
+    tag: "Cart",
+    summary: "Clear cart",
+    description: "Removes all items from the authenticated user's cart.",
+    headerSchema: authHeaderSchema,
+    responseSchema: cartResponseSchema,
+    responses: {
+      200: {
+        description: "Cart cleared successfully",
+        content: { "application/json": { schema: cartResponseSchema } },
+      },
+      ...commonAuthResponses,
+    },
+    security: [{ bearerAuth: [] }],
+  }),
+  noopHandler,
+);
+
+// Order
+openapi.openapi(
+  createAutoRoute({
+    method: "post",
+    path: "/orders",
+    tag: "Order",
+    summary: "Create a new order",
+    description:
+      "Creates an order for the authenticated user. If `items` is omitted, the API checks out the user's cart directly. Stock is decremented immediately during order creation rather than using a separate reservation lifecycle.",
+    headerSchema: idempotencyHeaderSchema,
+    requestSchema: createOrderSchema,
+    responseSchema: orderResponseSchema,
+    responses: {
+      201: {
+        description: "Order created successfully",
+        content: { "application/json": { schema: orderResponseSchema } },
+      },
+      400: {
+        description: "Missing Idempotency-Key, invalid payload, empty cart, or insufficient stock",
+        content: { "application/json": { schema: z.union([messageSchema, validationErrorSchema]) } },
+      },
+      ...commonAuthResponses,
+    },
+    security: [{ bearerAuth: [] }],
+  }),
+  noopHandler,
+);
+
+// Payment
 openapi.openapi(
   createAutoRoute({
     method: "post",
     path: "/webhooks/payments/mock",
     tag: "Payment",
-    summary: "Mock payment-provider webhook (local testing)",
+    summary: "Mock payment-provider webhook for local testing",
     description:
-      "Creates a pending payment and simulates a provider webhook event by calling the real /webhooks/payments handler internally.",
+      "Creates a pending payment row for the supplied order ID, generates a stripe-like signature, and internally calls the real payment webhook handler. Useful for demo and local lifecycle verification.",
     requestSchema: paymentWebhookMockRequestSchema,
     responseSchema: paymentWebhookMockResponseSchema,
     responses: {
+      200: {
+        description: "Mock payment event processed successfully",
+        content: { "application/json": { schema: paymentWebhookMockResponseSchema } },
+      },
       400: {
         description: "Invalid request",
+        content: { "application/json": { schema: z.union([messageSchema, validationErrorSchema]) } },
       },
       500: {
         description: "Internal server error",
+        content: { "application/json": { schema: webhookErrorSchema } },
       },
     },
     security: [],
   }),
-  noopHandler
+  noopHandler,
 );
 
 openapi.openapi(
@@ -543,38 +711,41 @@ openapi.openapi(
     tag: "Payment",
     summary: "Payment webhook endpoint",
     description:
-      "Verifies a stripe-like signature from the `stripe-signature` header using WEBHOOK_SECRET, then updates `orders.status` and `payments.status` based on `payment_intent.succeeded` / `payment_intent.failed`.",
+      "Verifies a stripe-like `stripe-signature` header using `WEBHOOK_SECRET`, resolves a provider reference from the event payload, and updates both `payments.status` and `orders.status`. Success transitions the order to `paid`, failure transitions it to `failed`. Repeated delivery of the same event is handled idempotently.",
+    headerSchema: stripeSignatureHeaderSchema,
     requestSchema: paymentWebhookRequestSchema,
     responseSchema: paymentWebhookResponseSchema,
     responses: {
+      200: {
+        description: "Webhook processed successfully",
+        content: { "application/json": { schema: paymentWebhookResponseSchema } },
+      },
       400: {
         description: "Invalid webhook payload",
+        content: { "application/json": { schema: z.union([messageSchema, validationErrorSchema]) } },
       },
       401: {
         description: "Invalid signature",
+        content: { "text/plain": { schema: z.string() } },
       },
       404: {
         description: "Payment not found",
+        content: { "text/plain": { schema: z.string() } },
       },
       500: {
         description: "Internal server error",
+        content: { "application/json": { schema: webhookErrorSchema } },
       },
     },
     security: [],
   }),
-  noopHandler
+  noopHandler,
 );
-
-// =======================
-// Docs App (Scalar UI)
-// =======================
 
 export const docsApp = new Hono();
 
-// OpenAPI JSON
 docsApp.get("/openapi.json", (c) => {
   const document = openapi.getOpenAPIDocument(OPENAPI_DOCUMENT_CONFIG);
-  // ensure the bearerAuth scheme exists
   document.components = document.components ?? {};
   document.components.securitySchemes = {
     ...(document.components.securitySchemes ?? {}),
@@ -587,9 +758,8 @@ docsApp.get("/openapi.json", (c) => {
   return c.json(document);
 });
 
-// Scalar UI
 const scalarUi = Scalar({
-  pageTitle: "My App API Docs",
+  pageTitle: "Orders API Docs",
   url: "/docs/openapi.json",
 });
 
