@@ -1,11 +1,10 @@
 import { Hono } from "hono";
 import { productService } from "../service/product.service";
-
-interface ApiError {
-  message: string;
-  status?: number;
-}
+import { adminMiddleware, authMiddleware } from "../middleware/auth.middleware";
+import { handleApiError } from "../utils/http-error";
 const product = new Hono();
+
+product.use("*", authMiddleware);
 
 product.post("/", async (c) => {
   try {
@@ -13,11 +12,7 @@ product.post("/", async (c) => {
     const result = await productService.create(data);
     return c.json(result, 201);
   } catch (err: unknown) {
-    const error: ApiError =
-      err instanceof Error
-        ? { message: err.message }
-        : { message: "Unknown error" };
-    return c.json(error, 500);
+    return handleApiError(c, err);
   }
 });
 
@@ -26,11 +21,7 @@ product.get("/", async (c) => {
     const result = await productService.findAll();
     return c.json(result);
   } catch (err: unknown) {
-    const error: ApiError =
-      err instanceof Error
-        ? { message: err.message }
-        : { message: "Unknown error" };
-    return c.json(error, (err as any)?.status || 500);
+    return handleApiError(c, err);
   }
 });
 
@@ -40,40 +31,28 @@ product.get("/:id", async (c) => {
     const result = await productService.findById(id);
     return c.json(result);
   } catch (err: unknown) {
-    const error: ApiError =
-      err instanceof Error
-        ? { message: err.message }
-        : { message: "Unknown error" };
-    return c.json(error, (err as any)?.status || 404);
+    return handleApiError(c, err);
   }
 });
 
-product.put("/:id", async (c) => {
+product.put("/:id", adminMiddleware, async (c) => {
   try {
     const id: string = c.req.param("id");
     const data: unknown = await c.req.json();
     const result = await productService.update(id, data);
     return c.json(result);
   } catch (err: unknown) {
-    const error: ApiError =
-      err instanceof Error
-        ? { message: err.message }
-        : { message: "Unknown error" };
-    return c.json(error, (err as any)?.status || 400);
+    return handleApiError(c, err);
   }
 });
 
-product.delete("/:id", async (c) => {
+product.delete("/:id", adminMiddleware, async (c) => {
   try {
     const id: string = c.req.param("id");
     const result = await productService.delete(id);
     return c.json({ message: "Product deleted successfully", product: result });
   } catch (err: unknown) {
-    const error: ApiError =
-      err instanceof Error
-        ? { message: err.message }
-        : { message: "Unknown error" };
-    return c.json(error, (err as any)?.status || 404);
+    return handleApiError(c, err);
   }
 });
 

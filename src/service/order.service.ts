@@ -3,6 +3,7 @@ import { products, orders, order_items, idempotencyKeys } from "../infra/db/sche
 import { eq, sql, and } from "drizzle-orm";
 import { createOrderSchema, type CreateOrder } from "../dto/order.dto";
 import { cartService } from "./cart.service";
+import { BadRequestError } from "../utils/http-error";
 
 export const orderService = {
   createOrder: async (idempotencyKey: string, data: { userId: string; items?: CreateOrder["items"] }) => {
@@ -28,7 +29,7 @@ export const orderService = {
           : validatedInput.items ?? [];
 
         if (checkoutItems.length === 0) {
-          throw new Error("Cart is empty");
+          throw new BadRequestError("Cart is empty");
         }
 
         let totalAmount = 0;
@@ -47,7 +48,7 @@ export const orderService = {
             .returning();
           
           if (updatedProduct.length === 0) {
-            throw new Error('Insufficient stock for one or more items');
+            throw new BadRequestError("Insufficient stock for one or more items");
           }
 
           const product = updatedProduct[0];
@@ -108,10 +109,10 @@ export const orderService = {
     } catch (error: any) {
       // Catch DB constraint error (postgres err code 23514 is check_violation)
       if (error.code === '23514') {
-        throw new Error('Insufficient stock for one or more items');
+        throw new BadRequestError("Insufficient stock for one or more items");
       }
       if (error?.name === "ZodError") {
-        throw new Error("Invalid order payload");
+        throw new BadRequestError("Invalid order payload");
       }
       throw error;
     }

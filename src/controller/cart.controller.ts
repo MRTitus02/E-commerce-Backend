@@ -1,10 +1,7 @@
 import { Hono } from "hono";
 import { authMiddleware } from "../middleware/auth.middleware";
 import { cartService } from "../service/cart.service";
-
-interface ApiError {
-  message: string;
-}
+import { handleApiError } from "../utils/http-error";
 
 const cart = new Hono();
 
@@ -16,8 +13,7 @@ cart.get("/", async (c) => {
     const result = await cartService.getCart(user.id);
     return c.json(result);
   } catch (err: unknown) {
-    const error: ApiError = err instanceof Error ? { message: err.message } : { message: "Unknown error" };
-    return c.json(error, 500);
+    return handleApiError(c, err);
   }
 });
 
@@ -28,9 +24,7 @@ cart.post("/items", async (c) => {
     const result = await cartService.addItem(user.id, body);
     return c.json(result, 201);
   } catch (err: unknown) {
-    const error: ApiError = err instanceof Error ? { message: err.message } : { message: "Unknown error" };
-    const status = error.message === "Product not found" ? 404 : 400;
-    return c.json(error, status);
+    return handleApiError(c, err);
   }
 });
 
@@ -42,9 +36,7 @@ cart.put("/items/:productId", async (c) => {
     const result = await cartService.updateItem(user.id, productId, body);
     return c.json(result);
   } catch (err: unknown) {
-    const error: ApiError = err instanceof Error ? { message: err.message } : { message: "Unknown error" };
-    const status = error.message === "Product not found" || error.message === "Cart item not found" ? 404 : 400;
-    return c.json(error, status);
+    return handleApiError(c, err);
   }
 });
 
@@ -55,9 +47,7 @@ cart.delete("/items/:productId", async (c) => {
     const result = await cartService.removeItem(user.id, productId);
     return c.json(result);
   } catch (err: unknown) {
-    const error: ApiError = err instanceof Error ? { message: err.message } : { message: "Unknown error" };
-    const status = error.message === "Cart item not found" ? 404 : 400;
-    return c.json(error, status);
+    return handleApiError(c, err);
   }
 });
 
@@ -67,8 +57,7 @@ cart.delete("/", async (c) => {
     const result = await cartService.clearCart(user.id);
     return c.json(result);
   } catch (err: unknown) {
-    const error: ApiError = err instanceof Error ? { message: err.message } : { message: "Unknown error" };
-    return c.json(error, 500);
+    return handleApiError(c, err);
   }
 });
 
