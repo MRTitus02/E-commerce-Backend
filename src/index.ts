@@ -11,6 +11,7 @@ import auth from './controller/auth.controller'
 import cart from './controller/cart.controller'
 import { env } from 'process'
 import { metricsHandler, metricsMiddleware } from './middleware/metrics.middleware'
+import { handleApiError } from './utils/http-error'
 
 dotenv.config()
 
@@ -37,6 +38,7 @@ app.use('*', cors({
   allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowHeaders: ["Content-Type", "Authorization", "Idempotency-Key", "stripe-signature"],
 }))
+app.onError((err, c) => handleApiError(c, err))
 app.use('*', metricsMiddleware)
 app.get('/metrics', metricsHandler)
 

@@ -4,15 +4,14 @@ import { users } from "../infra/db/schema";
 import { eq } from "drizzle-orm";
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from "../utils/jwt";
 import type { LoginDTO, RegisterDTO } from "../dto/auth.dto";
+import { ConflictError, NotFoundError, UnauthorizedError } from "../utils/http-error";
 
 export const authService = {
   register: async (data: RegisterDTO) => {
     // Check if user already exists
     const existing = await db.select().from(users).where(eq(users.email, data.email));
     if (existing.length > 0) {
-      const err: any = new Error("Email already in use");
-      err.status = 409;
-      throw err;
+      throw new ConflictError("Email already in use");
     }
 
     const hashedPassword = await bcrypt.hash(data.password, 10);
@@ -38,17 +37,13 @@ export const authService = {
   login: async (data: LoginDTO) => {
     const found = await db.select().from(users).where(eq(users.email, data.email));
     if (found.length === 0) {
-      const err: any = new Error("Invalid credentials");
-      err.status = 401;
-      throw err;
+      throw new UnauthorizedError("Invalid credentials");
     }
 
     const user = found[0];
     const valid = await bcrypt.compare(data.password, user.password);
     if (!valid) {
-      const err: any = new Error("Invalid credentials");
-      err.status = 401;
-      throw err;
+      throw new UnauthorizedError("Invalid credentials");
     }
 
     const accessToken = signAccessToken({ id: user.id, email: user.email, role: user.role });
@@ -66,16 +61,12 @@ export const authService = {
     try {
       payload = verifyRefreshToken(refreshToken);
     } catch {
-      const err: any = new Error("Invalid or expired refresh token");
-      err.status = 401;
-      throw err;
+      throw new UnauthorizedError("Invalid or expired refresh token");
     }
 
     const found = await db.select().from(users).where(eq(users.id, payload.id));
     if (found.length === 0) {
-      const err: any = new Error("User not found");
-      err.status = 404;
-      throw err;
+      throw new NotFoundError("User not found");
     }
 
     const user = found[0];

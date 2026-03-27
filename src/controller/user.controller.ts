@@ -1,37 +1,28 @@
 import { Hono } from "hono";
 import { userService } from "../service/user.service";
-
-interface ApiError {
-  message: string;
-  status?: number;
-}
+import { adminMiddleware, authMiddleware } from "../middleware/auth.middleware";
+import { handleApiError } from "../utils/http-error";
 
 const user = new Hono();
 
-user.post("/", async (c) => {
+user.use("*", authMiddleware);
+
+user.post("/", adminMiddleware, async (c) => {
   try {
     const data: unknown = await c.req.json();
     const result = await userService.create(data);
     return c.json(result, 201);
   } catch (err: unknown) {
-    const error: ApiError =
-      err instanceof Error
-        ? { message: err.message }
-        : { message: "Unknown error" };
-    return c.json(error, 500);
+    return handleApiError(c, err);
   }
 });
 
-user.get("/", async (c) => {
+user.get("/", adminMiddleware, async (c) => {
   try {
     const result = await userService.getAllUsers();
     return c.json(result);
   } catch (err: unknown) {
-    const error: ApiError =
-      err instanceof Error
-        ? { message: err.message }
-        : { message: "Unknown error" };
-    return c.json(error, (err as any)?.status || 500);
+    return handleApiError(c, err);
   }
 });
 
@@ -41,11 +32,7 @@ user.get("/:id", async (c) => {
     const result = await userService.getUser(id);
     return c.json(result);
   } catch (err: unknown) {
-    const error: ApiError =
-      err instanceof Error
-        ? { message: err.message }
-        : { message: "Unknown error" };
-    return c.json(error, (err as any)?.status || 404);
+    return handleApiError(c, err);
   }
 });
 
@@ -56,11 +43,7 @@ user.put("/:id", async (c) => {
     const result = await userService.updateUser(id, data);
     return c.json(result);
   } catch (err: unknown) {
-    const error: ApiError =
-      err instanceof Error
-        ? { message: err.message }
-        : { message: "Unknown error" };
-    return c.json(error, (err as any)?.status || 400);
+    return handleApiError(c, err);
   }
 });
 
@@ -70,11 +53,7 @@ user.delete("/:id", async (c) => {
     const result = await userService.deleteUser(id);
     return c.json({ message: "User deleted successfully", user: result });
   } catch (err: unknown) {
-    const error: ApiError =
-      err instanceof Error
-        ? { message: err.message }
-        : { message: "Unknown error" };
-    return c.json(error, (err as any)?.status || 404);
+    return handleApiError(c, err);
   }
 });
 

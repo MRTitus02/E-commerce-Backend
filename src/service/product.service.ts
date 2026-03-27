@@ -1,6 +1,7 @@
 import { productRepo } from "../repository/product.repo";
 import { createProductSchema, updateProductSchema } from "../dto/product.dto";
 import type { CreateProductDTO, UpdateProductDTO } from "../dto/product.dto";
+import { BadRequestError, NotFoundError } from "../utils/http-error";
 
 export const productService = {
     create : async (data: unknown) => {
@@ -15,16 +16,19 @@ export const productService = {
     findById : async (id: string) => {
         const product = await productRepo.findById(id);
         if (!product) {
-            throw new Error("Product not found");
+            throw new NotFoundError("Product not found");
         }
         return product;
     },
 
     update : async (id: string, data: unknown) => {
         const validateData: UpdateProductDTO = updateProductSchema.parse(data);
+        if (Object.keys(validateData).length === 0) {
+            throw new BadRequestError("At least one product field is required");
+        }
         const updatedProduct = await productRepo.update(id, validateData);
         if (!updatedProduct) {
-            throw new Error("Product not found or nothing to update");
+            throw new NotFoundError("Product not found");
         }
         return updatedProduct;
     },
@@ -32,7 +36,7 @@ export const productService = {
     delete : async (id: string) => {
         const deletedProduct = await productRepo.delete(id);
         if (!deletedProduct) {
-            throw new Error("Product not found");
+            throw new NotFoundError("Product not found");
         }
         return deletedProduct;
     },

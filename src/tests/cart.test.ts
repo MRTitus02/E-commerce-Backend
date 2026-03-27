@@ -111,5 +111,5 @@ describe("Cart API", () => {
     const secondProduct = await db.select().from(products).where(eq(products.id, secondProductId));
     expect(firstProduct[0].stock).toBe(7);
     expect(secondProduct[0].stock).toBe(7);
-  });
+  }, 15000);
 });

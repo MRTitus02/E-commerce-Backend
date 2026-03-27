@@ -8,6 +8,7 @@ import {
   type CartResponseDTO,
   type UpdateCartItemDTO,
 } from "../dto/cart.dto";
+import { NotFoundError } from "../utils/http-error";
 
 type DbLike = typeof db | any;
 
@@ -29,7 +30,7 @@ async function ensureCart(userId: string, tx: DbLike = db) {
 async function getProductOrThrow(productId: string, tx: DbLike = db) {
   const productRows = await tx.select().from(products).where(eq(products.id, productId));
   if (productRows.length === 0) {
-    throw new Error("Product not found");
+    throw new NotFoundError("Product not found");
   }
   return productRows[0];
 }
@@ -143,7 +144,7 @@ export const cartService = {
         .returning();
 
       if (updatedRows.length === 0) {
-        throw new Error("Cart item not found");
+        throw new NotFoundError("Cart item not found");
       }
 
       return buildCartResponse(userId, tx);
@@ -162,7 +163,7 @@ export const cartService = {
         .returning();
 
       if (deletedRows.length === 0) {
-        throw new Error("Cart item not found");
+        throw new NotFoundError("Cart item not found");
       }
 
       return buildCartResponse(userId, tx);
