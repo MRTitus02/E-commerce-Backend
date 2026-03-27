@@ -1,36 +1,29 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import bcrypt from "bcryptjs";
+import { randomUUID } from "crypto";
 import app from "../index";
 import { db } from "../infra/db/client";
-import { cart_items, carts, idempotencyKeys, order_items, orders, payments, products, users } from "../infra/db/schema";
-import { eq } from "drizzle-orm";
+import { products, users } from "../infra/db/schema";
 import { signAccessToken } from "../utils/jwt";
 
 describe("Access control and error handling", () => {
   let userToken: string;
   let adminToken: string;
   let productId: string;
+  const runId = randomUUID();
+  const adminCreatedEmail = `created-${runId}@example.com`;
 
   beforeAll(async () => {
-    await db.delete(cart_items);
-    await db.delete(carts);
-    await db.delete(payments);
-    await db.delete(order_items);
-    await db.delete(orders);
-    await db.delete(idempotencyKeys);
-    await db.delete(products);
-    await db.delete(users);
-
     const insertedUsers = await db.insert(users).values([
       {
         name: "Regular User",
-        email: "regular@example.com",
+        email: `regular-${runId}@example.com`,
         password: "plain-user-password",
         role: "user",
       },
       {
         name: "Admin User",
-        email: "admin@example.com",
+        email: `admin-${runId}@example.com`,
         password: "plain-admin-password",
         role: "admin",
       },
@@ -94,7 +87,7 @@ describe("Access control and error handling", () => {
       },
       body: JSON.stringify({
         name: "Created By Admin",
-        email: "created@example.com",
+        email: adminCreatedEmail,
         password: "secret123",
         role: "user",
       }),
@@ -102,7 +95,7 @@ describe("Access control and error handling", () => {
 
     expect(response.status).toBe(201);
     const body = await response.json() as any;
-    expect(body.email).toBe("created@example.com");
+    expect(body.email).toBe(adminCreatedEmail);
     expect(body.password).not.toBe("secret123");
     expect(await bcrypt.compare("secret123", body.password)).toBe(true);
   });

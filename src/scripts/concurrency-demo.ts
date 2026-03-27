@@ -1,8 +1,9 @@
 import { db } from "../infra/db/client";
-import { cart_items, carts, idempotencyKeys, order_items, orders, payments, products, users } from "../infra/db/schema";
+import { products, users } from "../infra/db/schema";
 import { signAccessToken } from "../utils/jwt";
 import { eq } from "drizzle-orm";
 import type { default as HonoAppType } from "../index";
+import { randomUUID } from "crypto";
 
 type OrderResponseBody = {
   orderId?: string;
@@ -11,21 +12,10 @@ type OrderResponseBody = {
   message?: string;
 };
 
-async function resetDemoData() {
-  await db.delete(cart_items);
-  await db.delete(carts);
-  await db.delete(payments);
-  await db.delete(order_items);
-  await db.delete(orders);
-  await db.delete(idempotencyKeys);
-  await db.delete(products);
-  await db.delete(users);
-}
-
-async function seedDemoData() {
+async function seedDemoData(runId: string) {
   const insertedUsers = await db.insert(users).values({
     name: "Concurrency Demo User",
-    email: "concurrency-demo@example.com",
+    email: `concurrency-demo-${runId}@example.com`,
     password: "demo-password",
     role: "user",
   }).returning();
@@ -44,13 +34,11 @@ async function seedDemoData() {
 }
 
 async function main() {
-  process.env.NODE_ENV = "test";
+  process.env.DISABLE_HTTP_SERVER = "true";
   console.log("Starting concurrency demo...");
   const { default: app } = await import("../index") as { default: typeof HonoAppType };
-
-  await resetDemoData();
-
-  const { user, product } = await seedDemoData();
+  const runId = randomUUID();
+  const { user, product } = await seedDemoData(runId);
   const authToken = signAccessToken({ id: user.id, email: user.email, role: user.role });
 
   console.log(`Seeded user: ${user.email}`);
@@ -69,7 +57,7 @@ async function main() {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Idempotency-Key": `demo-concurrency-${index}`,
+        "Idempotency-Key": `demo-concurrency-${runId}-${index}`,
         "Authorization": `Bearer ${authToken}`,
       },
       body: JSON.stringify(payload),

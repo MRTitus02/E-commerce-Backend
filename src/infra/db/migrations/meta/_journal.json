@@ -43,6 +43,13 @@
       "when": 1774531751430,
       "tag": "0005_married_master_chief",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1774611134405,
+      "tag": "0006_volatile_risque",
+      "breakpoints": true
     }
   ]
 }

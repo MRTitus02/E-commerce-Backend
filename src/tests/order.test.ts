@@ -1,37 +1,30 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import app from '../index';
 import { db } from '../infra/db/client';
-import { cart_items, carts, payments, products, orders, order_items, idempotencyKeys, users } from '../infra/db/schema';
+import { products, users } from '../infra/db/schema';
 import { eq } from 'drizzle-orm';
 import { signAccessToken } from '../utils/jwt';
+import { randomUUID } from 'crypto';
 
 describe('Order API', () => {
   let testUserId: string;
   let testProductId: string;
   let authToken: string;
+  const runId = randomUUID();
+  const idempotencyKey = `key-${runId}`;
 
   beforeAll(async () => {
-    // Clear test data
-    await db.delete(cart_items);
-    await db.delete(carts);
-    await db.delete(payments);
-    await db.delete(order_items);
-    await db.delete(orders);
-    await db.delete(idempotencyKeys);
-    await db.delete(products);
-    await db.delete(users);
-
     // Create a test user
     const userRes = await db.insert(users).values({
       name: 'Test User',
-      email: 'test@example.com',
+      email: `test-${runId}@example.com`,
       password: 'testpassword',
       role: 'user'
     }).returning();
     testUserId = userRes[0].id;
 
     // Generate valid Auth Token for test user
-    authToken = signAccessToken({ id: testUserId, email: 'test@example.com', role: 'user' });
+    authToken = signAccessToken({ id: testUserId, email: userRes[0].email, role: 'user' });
 
     // Create a test product with 10 stock
     const productRes = await db.insert(products).values({
@@ -54,7 +47,7 @@ describe('Order API', () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Idempotency-Key': 'key-123',
+        'Idempotency-Key': idempotencyKey,
         'Authorization': `Bearer ${authToken}`
       },
       body: JSON.stringify(payload)
@@ -73,7 +66,7 @@ describe('Order API', () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Idempotency-Key': 'key-123',
+        'Idempotency-Key': idempotencyKey,
         'Authorization': `Bearer ${authToken}`
       },
       body: JSON.stringify(payload)
@@ -105,7 +98,7 @@ describe('Order API', () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Idempotency-Key': `concurrent-key-${i}`,
+          'Idempotency-Key': `concurrent-key-${runId}-${i}`,
           'Authorization': `Bearer ${authToken}`
         },
         body: JSON.stringify(payload)

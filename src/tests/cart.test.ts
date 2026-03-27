@@ -1,8 +1,9 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
+import { randomUUID } from "crypto";
 import app from "../index";
 import { db } from "../infra/db/client";
-import { cart_items, carts, idempotencyKeys, order_items, orders, payments, products, users } from "../infra/db/schema";
+import { products, users } from "../infra/db/schema";
 import { signAccessToken } from "../utils/jwt";
 
 describe("Cart API", () => {
@@ -10,26 +11,18 @@ describe("Cart API", () => {
   let authToken: string;
   let firstProductId: string;
   let secondProductId: string;
+  const runId = randomUUID();
 
   beforeAll(async () => {
-    await db.delete(cart_items);
-    await db.delete(carts);
-    await db.delete(payments);
-    await db.delete(order_items);
-    await db.delete(orders);
-    await db.delete(idempotencyKeys);
-    await db.delete(products);
-    await db.delete(users);
-
     const userRes = await db.insert(users).values({
       name: "Cart User",
-      email: "cart@example.com",
+      email: `cart-${runId}@example.com`,
       password: "testpassword",
       role: "user",
     }).returning();
 
     testUserId = userRes[0].id;
-    authToken = signAccessToken({ id: testUserId, email: "cart@example.com", role: "user" });
+    authToken = signAccessToken({ id: testUserId, email: userRes[0].email, role: "user" });
 
     const productRes = await db.insert(products).values([
       { name: "Keyboard", description: "Mechanical keyboard", price: 2500, stock: 10 },
@@ -84,7 +77,7 @@ describe("Cart API", () => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Idempotency-Key": "cart-checkout-key",
+        "Idempotency-Key": `cart-checkout-key-${runId}`,
         "Authorization": `Bearer ${authToken}`,
       },
       body: JSON.stringify({}),

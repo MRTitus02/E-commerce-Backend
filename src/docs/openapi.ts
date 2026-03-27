@@ -43,14 +43,7 @@ const OPENAPI_DOCUMENT_CONFIG = {
 
 const noopHandler = async (c: any) => c.text("", 204);
 
-const authHeaderSchema = z.object({
-  authorization: z.string().openapi({
-    example: "Bearer <access-token>",
-    description: "JWT bearer token returned by the auth endpoints.",
-  }),
-});
-
-const idempotencyHeaderSchema = authHeaderSchema.extend({
+const idempotencyHeaderSchema = z.object({
   "idempotency-key": z.string().min(1).openapi({
     example: "checkout-2026-03-27-001",
     description: "Required for POST /orders. Reusing the same key returns the cached order response.",
@@ -225,7 +218,6 @@ openapi.openapi(
     summary: "Create a new user",
     description:
       "Creates a user record. This endpoint requires an authenticated admin token. Passwords are stored hashed by the service layer.",
-    headerSchema: authHeaderSchema,
     requestSchema: createUserSchema,
     responseSchema: userResponseSchema,
     responses: {
@@ -256,7 +248,6 @@ openapi.openapi(
     tag: "User",
     summary: "Get all users",
     description: "Returns all users. This endpoint requires an authenticated admin token.",
-    headerSchema: authHeaderSchema,
     responseSchema: z.array(userResponseSchema),
     responses: {
       200: {
@@ -278,7 +269,6 @@ openapi.openapi(
     tag: "User",
     summary: "Get a user by ID",
     description: "Returns a single user by UUID for an authenticated user.",
-    headerSchema: authHeaderSchema,
     paramSchema: z.object({ id: z.string().uuid() }),
     responseSchema: userResponseSchema,
     responses: {
@@ -309,7 +299,6 @@ openapi.openapi(
     summary: "Update a user by ID",
     description:
       "Updates a user by UUID for an authenticated user. Password updates are re-hashed before persistence.",
-    headerSchema: authHeaderSchema,
     paramSchema: z.object({ id: z.string().uuid() }),
     requestSchema: updateUserSchema,
     responseSchema: userResponseSchema,
@@ -344,7 +333,6 @@ openapi.openapi(
     tag: "User",
     summary: "Delete a user by ID",
     description: "Deletes a user by UUID for an authenticated user.",
-    headerSchema: authHeaderSchema,
     paramSchema: z.object({ id: z.string().uuid() }),
     responseSchema: userDeleteResponseSchema,
     responses: {
@@ -376,7 +364,6 @@ openapi.openapi(
     summary: "Create a new product",
     description:
       "Creates a product. This endpoint requires an authenticated user token. Product creation is not currently admin-only in the implementation.",
-    headerSchema: authHeaderSchema,
     requestSchema: createProductSchema,
     responseSchema: productResponseSchema,
     responses: {
@@ -402,7 +389,6 @@ openapi.openapi(
     tag: "Product",
     summary: "Get all products",
     description: "Returns all products visible to an authenticated user.",
-    headerSchema: authHeaderSchema,
     responseSchema: z.array(productResponseSchema),
     responses: {
       200: {
@@ -423,7 +409,6 @@ openapi.openapi(
     tag: "Product",
     summary: "Get a product by ID",
     description: "Returns a single product by UUID for an authenticated user.",
-    headerSchema: authHeaderSchema,
     paramSchema: z.object({ id: z.string().uuid() }),
     responseSchema: productResponseSchema,
     responses: {
@@ -453,7 +438,6 @@ openapi.openapi(
     tag: "Product",
     summary: "Update a product by ID",
     description: "Updates a product by UUID. This endpoint requires an authenticated admin token.",
-    headerSchema: authHeaderSchema,
     paramSchema: z.object({ id: z.string().uuid() }),
     requestSchema: updateProductSchema,
     responseSchema: productResponseSchema,
@@ -485,7 +469,6 @@ openapi.openapi(
     tag: "Product",
     summary: "Delete a product by ID",
     description: "Deletes a product by UUID. This endpoint requires an authenticated admin token.",
-    headerSchema: authHeaderSchema,
     paramSchema: z.object({ id: z.string().uuid() }),
     responseSchema: productDeleteResponseSchema,
     responses: {
@@ -518,7 +501,6 @@ openapi.openapi(
     summary: "Get current cart",
     description:
       "Returns the authenticated user's cart. If the user has no cart yet, an empty cart is created on demand.",
-    headerSchema: authHeaderSchema,
     responseSchema: cartResponseSchema,
     responses: {
       200: {
@@ -540,7 +522,6 @@ openapi.openapi(
     summary: "Add item to cart",
     description:
       "Adds a product to the authenticated user's cart. If the product is already present, the quantity is incremented.",
-    headerSchema: authHeaderSchema,
     requestSchema: addCartItemSchema,
     responseSchema: cartResponseSchema,
     responses: {
@@ -571,7 +552,6 @@ openapi.openapi(
     summary: "Update cart item quantity",
     description:
       "Sets a new quantity for a specific product already in the authenticated user's cart.",
-    headerSchema: authHeaderSchema,
     paramSchema: z.object({ productId: z.string().uuid() }),
     requestSchema: updateCartItemSchema,
     responseSchema: cartResponseSchema,
@@ -602,7 +582,6 @@ openapi.openapi(
     tag: "Cart",
     summary: "Remove item from cart",
     description: "Removes a product from the authenticated user's cart.",
-    headerSchema: authHeaderSchema,
     paramSchema: z.object({ productId: z.string().uuid() }),
     responseSchema: cartResponseSchema,
     responses: {
@@ -632,7 +611,6 @@ openapi.openapi(
     tag: "Cart",
     summary: "Clear cart",
     description: "Removes all items from the authenticated user's cart.",
-    headerSchema: authHeaderSchema,
     responseSchema: cartResponseSchema,
     responses: {
       200: {

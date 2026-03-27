@@ -22,7 +22,7 @@ const allowedOrigins = (process.env.CORS_ORIGIN ?? "*")
   .filter(Boolean)
 
 app.get('/', (c) => {
-  return c.text('Hello Hono!')
+  return c.text('Hello Hono!. Please visit /docs for API documentation.')
 })
 
 app.use('*', cors({
@@ -53,7 +53,7 @@ app.route("/auth", auth);
 app.route("/docs", docsApp);
 app.route("/docs/*", docsApp);
 
-if (process.env.NODE_ENV !== "test") {
+if (process.env.NODE_ENV !== "test" && process.env.DISABLE_HTTP_SERVER !== "true") {
   serve({
     fetch: app.fetch,
     port: Number(env.PORT) || 3000,

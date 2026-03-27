@@ -9,11 +9,14 @@
     "test": "vitest",
     "test:run": "vitest run --pool vmThreads",
     "test:watch": "vitest --pool vmThreads",
-    "migrate:generate": "drizzle-kit generate",
-    "migrate:up": "drizzle-kit migrate",
-    "migrate:down": "drizzle-kit migrate:rollback",
-    "migrate:push": "drizzle-kit push",
-    "studio": "drizzle-kit studio"
+    "migrate:generate": "drizzle-kit generate --config=drizzle.config.ts",
+    "migrate:up": "drizzle-kit migrate --config=drizzle.config.ts",
+    "migrate:down": "drizzle-kit migrate:rollback --config=drizzle.config.ts",
+    "migrate:push": "drizzle-kit push --config=drizzle.config.ts",
+    "migrate:test": "drizzle-kit migrate --config=drizzle.test.config.ts",
+    "migrate:push:test": "drizzle-kit push --config=drizzle.test.config.ts",
+    "studio": "drizzle-kit studio --config=drizzle.config.ts",
+    "studio:test": "drizzle-kit studio --config=drizzle.test.config.ts"
   },
   "dependencies": {
     "@hono/node-server": "^1.19.11",
