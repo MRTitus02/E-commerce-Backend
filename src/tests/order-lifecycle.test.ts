@@ -1,7 +1,8 @@
 import { beforeAll, describe, expect, it } from "vitest";
+import { randomUUID } from "crypto";
 import app from "../index";
 import { db } from "../infra/db/client";
-import { cart_items, carts, idempotencyKeys, order_items, orders, payments, products, users } from "../infra/db/schema";
+import { orders, payments, products, users } from "../infra/db/schema";
 import { signAccessToken } from "../utils/jwt";
 import { eq } from "drizzle-orm";
 
@@ -9,20 +10,12 @@ describe("Order lifecycle with webhook transitions", () => {
   let userId: string;
   let authToken: string;
   let productId: string;
+  const runId = randomUUID();
 
   beforeAll(async () => {
-    await db.delete(cart_items);
-    await db.delete(carts);
-    await db.delete(payments);
-    await db.delete(order_items);
-    await db.delete(orders);
-    await db.delete(idempotencyKeys);
-    await db.delete(products);
-    await db.delete(users);
-
     const insertedUsers = await db.insert(users).values({
       name: "Lifecycle User",
-      email: "lifecycle@example.com",
+      email: `lifecycle-${runId}@example.com`,
       password: "testpassword",
       role: "user",
     }).returning();
@@ -67,7 +60,7 @@ describe("Order lifecycle with webhook transitions", () => {
   }
 
   it("creates a pending order and transitions it to paid through the payment webhook", async () => {
-    const createdOrder = await createOrder("lifecycle-success-key", 2);
+    const createdOrder = await createOrder(`lifecycle-success-key-${runId}`, 2);
     expect(createdOrder.status).toBe("pending");
     expect(createdOrder.totalAmount).toBe(240);
 
@@ -133,7 +126,7 @@ describe("Order lifecycle with webhook transitions", () => {
   }, 15000);
 
   it("creates a pending order and transitions it to failed through the payment webhook", async () => {
-    const createdOrder = await createOrder("lifecycle-failed-key", 1);
+    const createdOrder = await createOrder(`lifecycle-failed-key-${runId}`, 1);
     expect(createdOrder.status).toBe("pending");
     expect(createdOrder.totalAmount).toBe(120);
 
