@@ -12,6 +12,7 @@ export type AutoRouteConfig = {
   requestSchema?: z.ZodTypeAny;
   paramSchema?: z.ZodTypeAny;
   querySchema?: z.ZodTypeAny;
+  headerSchema?: z.ZodTypeAny;
 
   responseSchema?: z.ZodTypeAny;
   responses?: Record<number, any>;
@@ -28,6 +29,7 @@ export const createAutoRoute = ({
   requestSchema,
   paramSchema,
   querySchema,
+  headerSchema,
   responseSchema,
   responses,
   security,
@@ -36,6 +38,7 @@ export const createAutoRoute = ({
 
   if (paramSchema) request.params = paramSchema;
   if (querySchema) request.query = querySchema;
+  if (headerSchema) request.headers = headerSchema;
 
   if (requestSchema) {
     request.body = {

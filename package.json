@@ -5,6 +5,7 @@
     "build": "tsc && tsc-alias",
     "typecheck": "tsc --noEmit",
     "start": "node dist/index.js",
+    "demo:concurrency": "tsx src/scripts/concurrency-demo.ts",
     "test": "vitest",
     "test:run": "vitest run --pool vmThreads",
     "test:watch": "vitest --pool vmThreads",
