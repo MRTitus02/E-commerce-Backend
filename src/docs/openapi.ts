@@ -10,7 +10,7 @@ import {
   productResponseSchema,
 } from "../dto/product.dto";
 import { createUserSchema, updateUserSchema, userResponseSchema } from "../dto/user.dto.js";
-import { createOrderSchema, orderResponseSchema } from "../dto/order.dto.js";
+import { createOrderSchema, orderHistoryResponseSchema, orderResponseSchema } from "../dto/order.dto.js";
 import { loginSchema, registerSchema, refreshSchema, authResponseSchema } from "../dto/auth.dto.js";
 import {
   paymentWebhookMockRequestSchema,
@@ -625,6 +625,27 @@ openapi.openapi(
 );
 
 // Order
+openapi.openapi(
+  createAutoRoute({
+    method: "get",
+    path: "/orders",
+    tag: "Order",
+    summary: "Get the authenticated user's orders",
+    description:
+      "Returns the authenticated user's order history split into ongoing orders (`pending`) and past orders (`paid` or `failed`). Each order includes its purchased products, per-item purchase price, and current status.",
+    responseSchema: orderHistoryResponseSchema,
+    responses: {
+      200: {
+        description: "Orders retrieved successfully",
+        content: { "application/json": { schema: orderHistoryResponseSchema } },
+      },
+      ...commonAuthResponses,
+    },
+    security: [{ bearerAuth: [] }],
+  }),
+  noopHandler,
+);
+
 openapi.openapi(
   createAutoRoute({
     method: "post",
