@@ -163,4 +163,86 @@ describe("Order lifecycle with webhook transitions", () => {
     expect(paymentRows[0].providerRef).toBe(paymentTriggerBody.providerRef);
     expect(paymentRows[0].status).toBe("failed");
   }, 15000);
+
+  it("returns the authenticated user's current and past orders with product details", async () => {
+    const pendingOrder = await createOrder(`lifecycle-history-pending-key-${runId}`, 1);
+    const paidOrder = await createOrder(`lifecycle-history-paid-key-${runId}`, 2);
+
+    const paymentTriggerResponse = await app.request("/webhooks/payments/mock", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        orderId: paidOrder.orderId,
+        result: "success",
+      }),
+    });
+
+    expect(paymentTriggerResponse.status).toBe(200);
+
+    const ordersResponse = await app.request("/orders", {
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${authToken}`,
+      },
+    });
+
+    expect(ordersResponse.status).toBe(200);
+    const ordersBody = await ordersResponse.json() as {
+      currentOrders: Array<{
+        orderId: string;
+        totalAmount: number;
+        status: "pending" | "paid" | "failed";
+        createdAt: string | null;
+        items: Array<{
+          productId: string;
+          quantity: number;
+          priceAtPurchase: number;
+          name: string;
+          description: string;
+        }>;
+      }>;
+      pastOrders: Array<{
+        orderId: string;
+        totalAmount: number;
+        status: "pending" | "paid" | "failed";
+        createdAt: string | null;
+        items: Array<{
+          productId: string;
+          quantity: number;
+          priceAtPurchase: number;
+          name: string;
+          description: string;
+        }>;
+      }>;
+    };
+
+    const currentOrder = ordersBody.currentOrders.find((order) => order.orderId === pendingOrder.orderId);
+    expect(currentOrder).toBeDefined();
+    expect(currentOrder?.status).toBe("pending");
+    expect(currentOrder?.items).toHaveLength(1);
+    expect(currentOrder?.items[0]).toMatchObject({
+      productId,
+      quantity: 1,
+      priceAtPurchase: 120,
+      name: "Lifecycle Product",
+      description: "Product used for lifecycle tests",
+    });
+
+    const historicalOrder = ordersBody.pastOrders.find((order) => order.orderId === paidOrder.orderId);
+    expect(historicalOrder).toBeDefined();
+    expect(historicalOrder?.status).toBe("paid");
+    expect(historicalOrder?.items).toHaveLength(1);
+    expect(historicalOrder?.items[0]).toMatchObject({
+      productId,
+      quantity: 2,
+      priceAtPurchase: 120,
+      name: "Lifecycle Product",
+      description: "Product used for lifecycle tests",
+    });
+
+    expect(ordersBody.currentOrders.every((order) => order.status === "pending")).toBe(true);
+    expect(ordersBody.pastOrders.every((order) => order.status !== "pending")).toBe(true);
+  }, 15000);
 });

@@ -1,11 +1,82 @@
 import { db } from "../infra/db/client";
 import { products, orders, order_items, idempotencyKeys } from "../infra/db/schema";
-import { eq, sql, and } from "drizzle-orm";
+import { eq, sql, and, desc } from "drizzle-orm";
 import { createOrderSchema, type CreateOrder } from "../dto/order.dto";
 import { cartService } from "./cart.service";
 import { BadRequestError } from "../utils/http-error";
 
 export const orderService = {
+  getOrdersForUser: async (userId: string) => {
+    const rows = await db
+      .select({
+        orderId: orders.id,
+        totalAmount: orders.totalAmount,
+        status: orders.status,
+        createdAt: orders.createdAt,
+        productId: order_items.productId,
+        quantity: order_items.quantity,
+        priceAtPurchase: order_items.price,
+        productName: products.name,
+        productDescription: products.description,
+      })
+      .from(orders)
+      .innerJoin(order_items, eq(order_items.orderId, orders.id))
+      .innerJoin(products, eq(products.id, order_items.productId))
+      .where(eq(orders.user_id, userId))
+      .orderBy(desc(orders.createdAt), desc(orders.id));
+
+    const orderMap = new Map<string, {
+      orderId: string;
+      totalAmount: number;
+      status: "pending" | "paid" | "failed";
+      createdAt: string | null;
+      items: Array<{
+        productId: string;
+        quantity: number;
+        priceAtPurchase: number;
+        name: string;
+        description: string;
+      }>;
+    }>();
+
+    for (const row of rows) {
+      const existing = orderMap.get(row.orderId);
+      if (existing) {
+        existing.items.push({
+          productId: row.productId,
+          quantity: row.quantity,
+          priceAtPurchase: row.priceAtPurchase,
+          name: row.productName,
+          description: row.productDescription,
+        });
+        continue;
+      }
+
+      orderMap.set(row.orderId, {
+        orderId: row.orderId,
+        totalAmount: row.totalAmount,
+        status: row.status,
+        createdAt: row.createdAt ? row.createdAt.toISOString() : null,
+        items: [
+          {
+            productId: row.productId,
+            quantity: row.quantity,
+            priceAtPurchase: row.priceAtPurchase,
+            name: row.productName,
+            description: row.productDescription,
+          },
+        ],
+      });
+    }
+
+    const allOrders = Array.from(orderMap.values());
+
+    return {
+      currentOrders: allOrders.filter((order) => order.status === "pending"),
+      pastOrders: allOrders.filter((order) => order.status !== "pending"),
+    };
+  },
+
   createOrder: async (idempotencyKey: string, data: { userId: string; items?: CreateOrder["items"] }) => {
     // Check idempotency key first
     if (idempotencyKey) {
