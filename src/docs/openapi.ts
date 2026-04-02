@@ -6,8 +6,11 @@ import { z } from "zod";
 import { createAutoRoute } from "../utils/scalargen.js";
 import {
   createProductSchema,
+  prepareProductImageUploadResponseSchema,
+  prepareProductImageUploadSchema,
   updateProductSchema,
   productResponseSchema,
+  productImageSchema,
 } from "../dto/product.dto";
 import { createUserSchema, updateUserSchema, userResponseSchema } from "../dto/user.dto.js";
 import { createOrderSchema, orderResponseSchema } from "../dto/order.dto.js";
@@ -79,6 +82,10 @@ const webhookErrorSchema = z.object({
 const productDeleteResponseSchema = z.object({
   message: z.string(),
   product: productResponseSchema,
+});
+
+const productImageMarkedUploadedResponseSchema = z.object({
+  image: productImageSchema,
 });
 
 const userDeleteResponseSchema = z.object({
@@ -376,6 +383,72 @@ openapi.openapi(
         content: { "application/json": { schema: validationErrorSchema } },
       },
       ...commonAuthResponses,
+    },
+    security: [{ bearerAuth: [] }],
+  }),
+  noopHandler,
+);
+
+openapi.openapi(
+  createAutoRoute({
+    method: "post",
+    path: "/products/{id}/images/uploads",
+    tag: "Product",
+    summary: "Prepare a product image upload",
+    description:
+      "Creates a pending product image record, generates a presigned MinIO upload URL, and returns the future public image URL. The client should upload the binary directly to storage and then call the mark-uploaded endpoint.",
+    paramSchema: z.object({ id: z.string().uuid() }),
+    requestSchema: prepareProductImageUploadSchema,
+    responseSchema: prepareProductImageUploadResponseSchema,
+    responses: {
+      201: {
+        description: "Upload prepared successfully",
+        content: { "application/json": { schema: prepareProductImageUploadResponseSchema } },
+      },
+      400: {
+        description: "Validation failed or malformed product ID",
+        content: { "application/json": { schema: z.union([messageSchema, validationErrorSchema]) } },
+      },
+      404: {
+        description: "Product not found",
+        content: { "application/json": { schema: messageSchema } },
+      },
+      ...commonAuthResponses,
+      ...adminOnlyResponses,
+    },
+    security: [{ bearerAuth: [] }],
+  }),
+  noopHandler,
+);
+
+openapi.openapi(
+  createAutoRoute({
+    method: "post",
+    path: "/products/{id}/images/{imageId}/mark-uploaded",
+    tag: "Product",
+    summary: "Mark a product image as uploaded",
+    description:
+      "Finalizes a pending product image after the binary upload succeeds. The server verifies the object exists in MinIO before exposing it in product responses.",
+    paramSchema: z.object({
+      id: z.string().uuid(),
+      imageId: z.string().uuid(),
+    }),
+    responseSchema: productImageMarkedUploadedResponseSchema,
+    responses: {
+      200: {
+        description: "Image marked as uploaded successfully",
+        content: { "application/json": { schema: productImageMarkedUploadedResponseSchema } },
+      },
+      400: {
+        description: "Malformed identifiers or the object is not yet present in storage",
+        content: { "application/json": { schema: messageSchema } },
+      },
+      404: {
+        description: "Product or image not found",
+        content: { "application/json": { schema: messageSchema } },
+      },
+      ...commonAuthResponses,
+      ...adminOnlyResponses,
     },
     security: [{ bearerAuth: [] }],
   }),

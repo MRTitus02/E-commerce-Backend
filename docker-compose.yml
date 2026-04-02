@@ -10,9 +10,23 @@ services:
       POSTGRES_PASSWORD: mypass
       POSTGRES_DB: mydb
     ports:
-      - "5432:5432"
+      - "5434:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+
+  minio:
+    image: minio/minio:latest
+    container_name: minio_ecommerce
+    restart: always
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
 
   app:
     build: .
@@ -20,11 +34,21 @@ services:
     restart: always
     depends_on:
       - db
+      - minio
     environment:
       DATABASE_URL: postgres://myuser:mypass@db:5432/mydb
       PORT: 3000
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: 9000
+      MINIO_USE_SSL: "false"
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      MINIO_BUCKET: ${MINIO_BUCKET:-product-images}
+      MINIO_PUBLIC_BASE_URL: ${MINIO_PUBLIC_BASE_URL:-http://localhost:9000}
+      MINIO_PRESIGNED_EXPIRY_SECONDS: ${MINIO_PRESIGNED_EXPIRY_SECONDS:-900}
     ports:
       - "3000:3000"
 
 volumes:
   pgdata:
+  minio_data:
