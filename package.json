@@ -1,14 +1,14 @@
 {
   "name": "app",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "cross-env NODE_ENV=development npm run build && node dist/index.js",
     "build": "tsc && tsc-alias",
     "typecheck": "tsc --noEmit",
-    "start": "node dist/index.js",
+    "start": "cross-env NODE_ENV=production node dist/index.js",
     "demo:concurrency": "tsx src/scripts/concurrency-demo.ts",
-    "test": "vitest",
-    "test:run": "vitest run --pool vmThreads",
-    "test:watch": "vitest --pool vmThreads",
+    "test": "cross-env NODE_ENV=test vitest src/tests",
+    "test:run": "cross-env NODE_ENV=test vitest run src/tests --pool vmThreads",
+    "test:watch": "cross-env NODE_ENV=test vitest src/tests --pool vmThreads",
     "migrate:generate": "drizzle-kit generate --config=drizzle.config.ts",
     "migrate:up": "drizzle-kit migrate --config=drizzle.config.ts",
     "migrate:down": "drizzle-kit migrate:rollback --config=drizzle.config.ts",
@@ -19,6 +19,8 @@
     "studio:test": "drizzle-kit studio --config=drizzle.test.config.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1022.0",
+    "@aws-sdk/s3-request-presigner": "^3.1022.0",
     "@hono/node-server": "^1.19.11",
     "@hono/zod-openapi": "^1.2.3",
     "@hono/zod-validator": "^0.7.6",
@@ -39,6 +41,7 @@
     "@types/node": "^20.11.17",
     "@types/pg": "^8.20.0",
     "@types/supertest": "^7.2.0",
+    "cross-env": "^7.0.3",
     "drizzle-kit": "^0.31.10",
     "supertest": "^7.2.2",
     "tsc-alias": "^1.8.16",

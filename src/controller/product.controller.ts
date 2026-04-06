@@ -35,6 +35,28 @@ product.get("/:id", async (c) => {
   }
 });
 
+product.post("/:id/images/uploads", adminMiddleware, async (c) => {
+  try {
+    const id: string = c.req.param("id");
+    const data: unknown = await c.req.json();
+    const result = await productService.prepareImageUpload(id, data);
+    return c.json(result, 201);
+  } catch (err: unknown) {
+    return handleApiError(c, err);
+  }
+});
+
+product.post("/:id/images/:imageId/mark-uploaded", adminMiddleware, async (c) => {
+  try {
+    const id: string = c.req.param("id");
+    const imageId: string = c.req.param("imageId");
+    const result = await productService.markImageUploaded(id, imageId);
+    return c.json(result);
+  } catch (err: unknown) {
+    return handleApiError(c, err);
+  }
+});
+
 product.put("/:id", adminMiddleware, async (c) => {
   try {
     const id: string = c.req.param("id");

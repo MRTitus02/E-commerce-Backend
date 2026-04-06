@@ -6,25 +6,27 @@ dotenv.config();
 const { Pool } = pkg;
 
 const runtimeDatabaseUrl =
-  process.env.NODE_ENV === "test"
-    ? process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL
-    : process.env.DATABASE_URL;
+  process.env.NODE_ENV === "production"
+    ? process.env.DATABASE_URL
+    : process.env.TEST_DATABASE_URL;
 
 if (!runtimeDatabaseUrl) {
-  throw new Error("DATABASE_URL is not configured");
+  const expectedVariable =
+    process.env.NODE_ENV === "production" ? "DATABASE_URL" : "TEST_DATABASE_URL";
+  throw new Error(`${expectedVariable} is not configured`);
 }
 
-if (process.env.NODE_ENV === "test") {
+if (process.env.NODE_ENV !== "production") {
   const configuredTestUrl = process.env.TEST_DATABASE_URL;
   if (!configuredTestUrl) {
     throw new Error(
-      "TEST_DATABASE_URL is required when running tests. Refusing to use the default DATABASE_URL for test execution.",
+      "TEST_DATABASE_URL is required outside production. Refusing to use the primary production database for local or test execution.",
     );
   }
 
   if (configuredTestUrl === process.env.DATABASE_URL) {
     throw new Error(
-      "TEST_DATABASE_URL must be different from DATABASE_URL. Refusing to run tests against the primary database.",
+      "TEST_DATABASE_URL must be different from DATABASE_URL. Refusing to run outside production against the primary database.",
     );
   }
 }

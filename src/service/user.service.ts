@@ -2,6 +2,7 @@ import { userRepository } from "../repository/user.repository";
 import { createUserSchema, updateUserSchema } from "../dto/user.dto";
 import type { CreateUserDTO, UpdateUserDTO } from "../dto/user.dto";
 import bcrypt from "bcryptjs";
+import { z } from "zod";
 import { BadRequestError, ConflictError, NotFoundError } from "../utils/http-error";
 
 class UserNotFoundError extends NotFoundError {
@@ -15,6 +16,13 @@ class UserAlreadyExistsError extends ConflictError {
   constructor(message = "User already exists") {
     super(message);
     this.name = "UserAlreadyExistsError";
+  }
+}
+
+function validateUserId(id: string) {
+  const parsed = z.string().uuid().safeParse(id);
+  if (!parsed.success) {
+    throw new BadRequestError("Invalid identifier or malformed input");
   }
 }
 
@@ -36,6 +44,7 @@ export const userService = {
   },
 
 getUser: async (id: string) => {
+  validateUserId(id);
   const user = await userRepository.findById(id);
   if (!user) {
     throw new UserNotFoundError();
@@ -48,6 +57,7 @@ getUser: async (id: string) => {
   },
 
   updateUser: async (id: string, data: unknown) => {
+    validateUserId(id);
     const validateData: UpdateUserDTO = updateUserSchema.parse(data);
     if (Object.keys(validateData).length === 0) {
       throw new BadRequestError("At least one user field is required");
@@ -73,6 +83,7 @@ getUser: async (id: string) => {
   },
 
   deleteUser: async (id: string) => {
+    validateUserId(id);
     const deletedUser = await userRepository.delete(id);
     if (!deletedUser) {
       throw new UserNotFoundError();
